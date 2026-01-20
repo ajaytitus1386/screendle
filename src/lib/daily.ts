@@ -142,3 +142,9 @@ export function getTodaysDateKey(): string {
 	const now = new Date();
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
+
+// Get a completely random movie ID (for testing/practice mode)
+export function getRandomMovieId(): number {
+	const index = Math.floor(Math.random() * DAILY_MOVIE_IDS.length);
+	return DAILY_MOVIE_IDS[index];
+}

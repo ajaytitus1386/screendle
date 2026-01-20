@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { TMDB_ACCESS_TOKEN, OMDB_API_KEY } from '$env/static/private';
-import { getDailyMovieId } from '$lib/daily';
+import { getDailyMovieId, getRandomMovieId } from '$lib/daily';
 import type { Movie } from '$lib/types';
 import type { RequestHandler } from './$types';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
-export const GET: RequestHandler = async () => {
-	const movieId = getDailyMovieId();
+export const GET: RequestHandler = async ({ url }) => {
+	const random = url.searchParams.get('random') === 'true';
+	const movieId = random ? getRandomMovieId() : getDailyMovieId();
 
 	try {
 		const movie = await getEnrichedMovie(movieId);

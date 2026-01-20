@@ -36,27 +36,18 @@
 		error = '';
 
 		try {
-			// Fetch today's movie
-			const response = await fetch('/api/daily');
+			// Fetch a random movie (for testing) - change to '/api/daily' for production
+			const response = await fetch('/api/daily?random=true');
 			if (!response.ok) {
-				throw new Error('Failed to fetch daily movie');
+				throw new Error('Failed to fetch movie');
 			}
 			const data = await response.json();
 			targetMovie = data.movie;
 
-			// Load saved game state from localStorage
-			const todayKey = getTodaysDateKey();
-			const savedData = localStorage.getItem(STORAGE_KEY);
-
-			if (savedData) {
-				const saved: GameSave = JSON.parse(savedData);
-				// Only restore if it's from today and matches the target movie
-				if (saved.date === todayKey && saved.targetMovieId === targetMovie?.id) {
-					guesses = saved.guesses;
-					gameOver = saved.gameOver;
-					won = saved.won;
-				}
-			}
+			// Reset game state for random mode
+			guesses = [];
+			gameOver = false;
+			won = false;
 		} catch (e) {
 			console.error('Failed to load game:', e);
 			error = 'Failed to load today\'s puzzle. Please try refreshing.';
@@ -360,6 +351,12 @@
 						</p>
 					</div>
 				{/if}
+				<button
+					onclick={loadGame}
+					class="mt-4 rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+				>
+					New Game
+				</button>
 			</div>
 		{/if}
 

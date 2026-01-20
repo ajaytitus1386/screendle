@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:developer.themoviedb.org)",
+      "WebFetch(domain:www.omdbapi.com)",
+      "WebFetch(domain:developer.imdb.com)",
+      "WebFetch(domain:osp123.github.io)",
+      "WebFetch(domain:framed.wtf)",
+      "WebFetch(domain:www.themoviedb.org)",
+      "Bash(npx sv:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn-svelte@latest init)",
+      "Bash(npx shadcn-svelte@latest init:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(gh --version:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

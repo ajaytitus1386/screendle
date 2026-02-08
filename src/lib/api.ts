@@ -71,6 +71,7 @@ export async function getEnrichedMovie(tmdbId: number): Promise<Movie | null> {
 
 	return {
 		id: details.id,
+		imdb_id: details.imdb_id || null,
 		title: details.title,
 		poster_path: details.poster_path,
 		release_date: details.release_date || '',

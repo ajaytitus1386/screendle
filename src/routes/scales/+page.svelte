@@ -13,6 +13,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let transitioning = $state(false);
+	let loadingMessage = $state('Loading today\'s Scales...');
 
 	onMount(async () => {
 		const today = getTodaysDateKey();
@@ -26,6 +27,8 @@
 					currentRound = parsed.currentRound;
 					score = parsed.score;
 					gameComplete = parsed.gameComplete;
+					// Preload images for restored game too
+					await preloadAllImages(parsed.rounds);
 					loading = false;
 					return;
 				}
@@ -37,9 +40,29 @@
 		await fetchPairs();
 	});
 
+	function preloadImage(url: string): Promise<void> {
+		return new Promise((resolve) => {
+			const img = new Image();
+			img.onload = () => resolve();
+			img.onerror = () => resolve(); // resolve anyway so we don't block
+			img.src = url;
+		});
+	}
+
+	async function preloadAllImages(roundsList: ScalesRound[]): Promise<void> {
+		loadingMessage = 'Loading posters...';
+		const urls: string[] = [];
+		for (const round of roundsList) {
+			if (round.movieA.poster_path) urls.push(posterUrl(round.movieA.poster_path));
+			if (round.movieB.poster_path) urls.push(posterUrl(round.movieB.poster_path));
+		}
+		await Promise.all(urls.map(preloadImage));
+	}
+
 	async function fetchPairs() {
 		loading = true;
 		error = '';
+		loadingMessage = 'Loading today\'s Scales...';
 
 		try {
 			const response = await fetch('/api/scales');
@@ -48,7 +71,7 @@
 			const data = await response.json();
 			const pairs: { movieA: Movie; movieB: Movie }[] = data.pairs;
 
-			rounds = pairs.map((pair) => ({
+			const newRounds: ScalesRound[] = pairs.map((pair) => ({
 				movieA: pair.movieA,
 				movieB: pair.movieB,
 				correctAnswer: pair.movieA.imdb_rating >= pair.movieB.imdb_rating ? 'A' : 'B',
@@ -56,6 +79,10 @@
 				revealed: false
 			}));
 
+			// Preload all poster images before starting
+			await preloadAllImages(newRounds);
+
+			rounds = newRounds;
 			currentRound = 0;
 			score = 0;
 			gameComplete = false;
@@ -114,6 +141,11 @@
 		return `https://image.tmdb.org/t/p/w300${path}`;
 	}
 
+	function imdbUrl(imdbId: string | null): string {
+		if (!imdbId) return '';
+		return `https://www.imdb.com/title/${imdbId}/`;
+	}
+
 	let currentRoundData = $derived(rounds.length > 0 ? rounds[currentRound] : null);
 </script>
 
@@ -127,7 +159,7 @@
 
 	{#if loading}
 		<div class="flex items-center justify-center py-12">
-			<div class="text-muted-foreground">Loading today's Scales...</div>
+			<div class="text-muted-foreground">{loadingMessage}</div>
 		</div>
 	{:else if error}
 		<div class="mx-auto max-w-md rounded-lg bg-red-500/20 p-6 text-center">
@@ -167,6 +199,36 @@
 							{round.userAnswer === round.correctAnswer ? 'bg-green-500/30 text-green-400 border border-green-500/50' : 'bg-red-500/30 text-red-400 border border-red-500/50'}"
 					>
 						{i + 1}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Pair List -->
+			<div class="mb-8 space-y-3 text-left">
+				{#each rounds as round, i}
+					{@const correct = round.userAnswer === round.correctAnswer}
+					{@const winner = round.correctAnswer === 'A' ? round.movieA : round.movieB}
+					{@const loser = round.correctAnswer === 'A' ? round.movieB : round.movieA}
+					<div class="rounded-lg bg-black/30 border {correct ? 'border-green-500/30' : 'border-red-500/30'} p-3 flex items-center gap-3">
+						<div class="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-bold {correct ? 'bg-green-500/30 text-green-400' : 'bg-red-500/30 text-red-400'}">
+							{i + 1}
+						</div>
+						<div class="flex-1 min-w-0 text-sm">
+							<div class="flex items-baseline gap-1.5">
+								<span class="font-semibold text-green-400 truncate">{winner.title}</span>
+								<span class="text-xs text-muted-foreground flex-shrink-0">({winner.imdb_rating.toFixed(1)})</span>
+								{#if winner.imdb_id}
+									<a href={imdbUrl(winner.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">IMDb</a>
+								{/if}
+							</div>
+							<div class="flex items-baseline gap-1.5">
+								<span class="text-muted-foreground truncate">{loser.title}</span>
+								<span class="text-xs text-muted-foreground flex-shrink-0">({loser.imdb_rating.toFixed(1)})</span>
+								{#if loser.imdb_id}
+									<a href={imdbUrl(loser.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">IMDb</a>
+								{/if}
+							</div>
+						</div>
 					</div>
 				{/each}
 			</div>

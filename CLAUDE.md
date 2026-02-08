@@ -62,26 +62,39 @@ Two movies shown side by side — pick which one has the higher rating. 10 fixed
 - [x] Get API keys (TMDB + OMDB)
 - [x] Initialize SvelteKit project
 - [x] Build POC - Classic mode (frontend calling APIs directly)
-- [ ] Tune Classic mode difficulty
-- [ ] Design Scales mode
-- [ ] Build Scales mode POC
-- [ ] Design database schema (Phase 2)
+- [x] Design Scales mode
+- [x] Build Scales mode POC
+- [x] Landing page + route restructure (/, /classic, /scales)
+- [x] How to Play modal
+- [x] Research backend options (DB, hosting, ingestion) — see PROJECT_SPEC.md Phase 2
+- [ ] Choose hosting + DB combo (decision pending)
 - [ ] Build movie ingestion script (Phase 2)
+- [ ] Replace live API calls with DB reads (Phase 2)
+- [ ] Deploy to production
+- [ ] Tune Classic mode difficulty
 
 ## Project Structure
 ```
 src/
 ├── lib/
-│   ├── types.ts                    # Movie & game state types
+│   ├── api.ts                      # Shared getEnrichedMovie() (server-only)
+│   ├── daily.ts                    # Curated movie IDs, seeded RNG, daily selection
+│   ├── types.ts                    # Movie, ScalesRound, game state types
 │   ├── utils.ts                    # Utility functions (cn)
 │   └── components/
 │       ├── ui/                     # shadcn-svelte components
 │       ├── GameRow.svelte          # Guess row with colored cells
+│       ├── HowToPlay.svelte        # How to play modal (Classic + Scales tabs)
 │       └── SearchInput.svelte      # Autocomplete movie search
 ├── routes/
-│   ├── +layout.svelte              # Root layout (dark theme)
-│   ├── +page.svelte                # Main game board
-│   └── api/search/+server.ts       # Movie search API endpoint
+│   ├── +layout.svelte              # Root layout (navbar, how-to-play)
+│   ├── +page.svelte                # Landing page (mode selection)
+│   ├── classic/+page.svelte        # Classic mode game board
+│   ├── scales/+page.svelte         # Scales mode (higher/lower)
+│   └── api/
+│       ├── daily/+server.ts        # Daily movie endpoint
+│       ├── search/+server.ts       # Movie search endpoint
+│       └── scales/+server.ts       # Scales pairs endpoint
 └── app.css                         # Tailwind + theme variables
 ```
 

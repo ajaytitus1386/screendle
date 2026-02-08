@@ -32,14 +32,39 @@ Daily movie guessing game (like Wordle but for movies). Guess a movie, get feedb
 - **Red**: No match
 - **Arrows**: Higher/lower for numeric properties
 
+## Game Modes
+
+### Classic Mode
+The original mode. Guess the daily movie, get feedback on 7 properties per guess. See Properties table above.
+
+### Scales Mode
+Two movies shown side by side — pick which one has the higher rating. 10 fixed rounds per day, same for all players. Score out of 10.
+
+**Decided:**
+- **Pairs**: Mix of easy (wide gap), medium, and hard (close gap) — difficulty should ramp up
+- **Rating**: Uniform combined score (IMDb + RT + Metacritic normalized). Same score shown everywhere
+- **Scoring**: Right/wrong tally, final score out of 10
+- **Display**: Poster + title only per movie
+- **Synced daily**: Same 10 pairs for all players each day
+- **Reveal**: Show actual ratings immediately after each pick
+- **Stats**: Percentile ranking ("better than 73% of players") — requires backend, defer to Phase 2
+
+**Rating**: IMDb only for MVP. Clean, intuitive, near-universal coverage.
+**Difficulty ramp**: Rounds get harder — 1-3 easy (wide gap), 4-7 medium, 8-10 hard (close gap).
+**Percentile stats**: Needs backend, defer to Phase 2. MVP tracks local score history only.
+
+**Future**: Let player select rating source (IMDb, RT, Metacritic) when starting Scales. Each source plays differently.
+
 ## Current Status
 - [x] Project spec documented
 - [x] Explore TMDB/OMDB APIs
 - [x] Choose tech stack (SvelteKit + shadcn-svelte)
 - [x] Get API keys (TMDB + OMDB)
 - [x] Initialize SvelteKit project
-- [x] Build POC (frontend calling APIs directly)
-- [ ] Test and tune gameplay
+- [x] Build POC - Classic mode (frontend calling APIs directly)
+- [ ] Tune Classic mode difficulty
+- [ ] Design Scales mode
+- [ ] Build Scales mode POC
 - [ ] Design database schema (Phase 2)
 - [ ] Build movie ingestion script (Phase 2)
 

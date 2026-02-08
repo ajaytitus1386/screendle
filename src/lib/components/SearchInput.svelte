@@ -10,11 +10,11 @@
 
 	let { onSelect, disabled = false, guessedIds = [] }: Props = $props();
 
-	// Filter out already-guessed movies
-	let filteredResults = $derived(results.filter(m => !guessedIds.includes(m.id)));
-
 	let query = $state('');
 	let results: Movie[] = $state([]);
+
+	// Filter out already-guessed movies
+	let filteredResults = $derived(results.filter(m => !guessedIds.includes(m.id)));
 	let isLoading = $state(false);
 	let showDropdown = $state(false);
 	let selectedIndex = $state(-1);

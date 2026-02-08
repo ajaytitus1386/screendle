@@ -119,7 +119,7 @@ export const DAILY_MOVIE_IDS = [
 ];
 
 // Simple seeded random number generator
-function seededRandom(seed: number): number {
+export function seededRandom(seed: number): number {
 	const x = Math.sin(seed) * 10000;
 	return x - Math.floor(x);
 }
@@ -147,4 +147,24 @@ export function getTodaysDateKey(): string {
 export function getRandomMovieId(): number {
 	const index = Math.floor(Math.random() * DAILY_MOVIE_IDS.length);
 	return DAILY_MOVIE_IDS[index];
+}
+
+// Get 20 unique movie IDs for Scales mode (10 pairs)
+// Uses a different seed offset to avoid overlap with Classic mode
+export function getDailyScalesMovieIds(seed?: number): number[] {
+	const dateSeed = (seed ?? getTodaysSeed()) + 50000;
+	const pool = [...DAILY_MOVIE_IDS];
+	const selected: number[] = [];
+
+	// Fisher-Yates shuffle with seeded RNG, then take first 20
+	for (let i = pool.length - 1; i > 0; i--) {
+		const j = Math.floor(seededRandom(dateSeed + i) * (i + 1));
+		[pool[i], pool[j]] = [pool[j], pool[i]];
+	}
+
+	for (let i = 0; i < 20 && i < pool.length; i++) {
+		selected.push(pool[i]);
+	}
+
+	return selected;
 }

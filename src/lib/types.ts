@@ -49,3 +49,20 @@ export interface GameSave {
 	gameOver: boolean;
 	won: boolean;
 }
+
+// Scales mode types
+export interface ScalesRound {
+	movieA: Movie;
+	movieB: Movie;
+	correctAnswer: 'A' | 'B';
+	userAnswer: 'A' | 'B' | null;
+	revealed: boolean;
+}
+
+export interface ScalesGameSave {
+	date: string;
+	rounds: ScalesRound[];
+	currentRound: number;
+	score: number;
+	gameComplete: boolean;
+}

@@ -286,7 +286,6 @@
 <main class="container mx-auto max-w-5xl px-4 py-8">
 	<!-- Header -->
 	<header class="mb-8 text-center">
-		<a href="/" class="inline-block text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">&larr; Back</a>
 		<h1 class="mb-2 text-4xl font-bold tracking-tight">Screendle</h1>
 		<p class="text-muted-foreground">Classic &mdash; Guess the movie</p>
 	</header>

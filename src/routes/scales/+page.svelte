@@ -14,6 +14,7 @@
 	let error = $state('');
 	let transitioning = $state(false);
 	let loadingMessage = $state('Loading today\'s Scales...');
+	let feedbackVisible = $state(false);
 
 	onMount(async () => {
 		const today = getTodaysDateKey();
@@ -27,7 +28,6 @@
 					currentRound = parsed.currentRound;
 					score = parsed.score;
 					gameComplete = parsed.gameComplete;
-					// Preload images for restored game too
 					await preloadAllImages(parsed.rounds);
 					loading = false;
 					return;
@@ -44,7 +44,7 @@
 		return new Promise((resolve) => {
 			const img = new Image();
 			img.onload = () => resolve();
-			img.onerror = () => resolve(); // resolve anyway so we don't block
+			img.onerror = () => resolve();
 			img.src = url;
 		});
 	}
@@ -79,7 +79,6 @@
 				revealed: false
 			}));
 
-			// Preload all poster images before starting
 			await preloadAllImages(newRounds);
 
 			rounds = newRounds;
@@ -118,13 +117,14 @@
 			score++;
 		}
 
-		// Trigger reactivity
 		rounds = [...rounds];
 		saveGame();
 
-		// Auto-advance after delay
+		// Show feedback badge, then advance
+		feedbackVisible = true;
 		transitioning = true;
 		setTimeout(() => {
+			feedbackVisible = false;
 			if (currentRound + 1 >= rounds.length) {
 				gameComplete = true;
 				saveGame();
@@ -149,10 +149,36 @@
 	let currentRoundData = $derived(rounds.length > 0 ? rounds[currentRound] : null);
 </script>
 
+<style>
+	@keyframes feedback-pop {
+		0% {
+			opacity: 0;
+			transform: translate(-50%, -50%) scale(0.5);
+		}
+		20% {
+			opacity: 1;
+			transform: translate(-50%, -50%) scale(1.15);
+		}
+		40% {
+			transform: translate(-50%, -50%) scale(0.95);
+		}
+		60% {
+			transform: translate(-50%, -50%) scale(1);
+		}
+		100% {
+			opacity: 1;
+			transform: translate(-50%, -50%) scale(1);
+		}
+	}
+
+	.feedback-badge {
+		animation: feedback-pop 0.4s ease-out forwards;
+	}
+</style>
+
 <main class="container mx-auto max-w-2xl px-4 py-8">
 	<!-- Header -->
 	<header class="mb-6 text-center">
-		<a href="/" class="inline-block text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">&larr; Back</a>
 		<h1 class="mb-2 text-4xl font-bold tracking-tight">Screendle</h1>
 		<p class="text-muted-foreground">Scales &mdash; Which has the higher IMDb rating?</p>
 	</header>
@@ -203,29 +229,56 @@
 				{/each}
 			</div>
 
-			<!-- Pair List -->
-			<div class="mb-8 space-y-3 text-left">
+			<!-- Pair Review List -->
+			<div class="mb-8 space-y-4">
 				{#each rounds as round, i}
 					{@const correct = round.userAnswer === round.correctAnswer}
-					{@const winner = round.correctAnswer === 'A' ? round.movieA : round.movieB}
-					{@const loser = round.correctAnswer === 'A' ? round.movieB : round.movieA}
-					<div class="rounded-lg bg-black/30 border {correct ? 'border-green-500/30' : 'border-red-500/30'} p-3 flex items-center gap-3">
-						<div class="flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs font-bold {correct ? 'bg-green-500/30 text-green-400' : 'bg-red-500/30 text-red-400'}">
-							{i + 1}
+					<div class="rounded-xl bg-black/30 border {correct ? 'border-green-500/20' : 'border-red-500/20'} p-3">
+						<!-- Round label -->
+						<div class="flex items-center justify-center gap-2 mb-3">
+							<div class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold {correct ? 'bg-green-500/30 text-green-400' : 'bg-red-500/30 text-red-400'}">
+								{i + 1}
+							</div>
+							<span class="text-xs font-semibold {correct ? 'text-green-400' : 'text-red-400'}">
+								{correct ? 'Correct' : 'Wrong'}
+							</span>
 						</div>
-						<div class="flex-1 min-w-0 text-sm">
-							<div class="flex items-baseline gap-1.5">
-								<span class="font-semibold text-green-400 truncate">{winner.title}</span>
-								<span class="text-xs text-muted-foreground flex-shrink-0">({winner.imdb_rating.toFixed(1)})</span>
-								{#if winner.imdb_id}
-									<a href={imdbUrl(winner.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">IMDb</a>
+
+						<!-- Side-by-side posters -->
+						<div class="grid grid-cols-2 gap-3">
+							<!-- Movie A -->
+							<div class="text-center {round.correctAnswer === 'A' ? 'ring-1 ring-green-500/40 rounded-lg p-2' : 'p-2'}">
+								{#if round.movieA.poster_path}
+									<img
+										src={posterUrl(round.movieA.poster_path)}
+										alt={round.movieA.title}
+										class="mx-auto mb-2 w-20 rounded-lg sm:w-24"
+									/>
+								{:else}
+									<div class="mx-auto mb-2 w-20 h-30 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground text-xs sm:w-24 sm:h-36">?</div>
+								{/if}
+								<p class="text-xs font-semibold truncate">{round.movieA.title}</p>
+								<p class="text-xs {round.correctAnswer === 'A' ? 'text-green-400 font-bold' : 'text-muted-foreground'}">{round.movieA.imdb_rating.toFixed(1)}</p>
+								{#if round.movieA.imdb_id}
+									<a href={imdbUrl(round.movieA.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-[10px] text-blue-400 hover:text-blue-300">IMDb</a>
 								{/if}
 							</div>
-							<div class="flex items-baseline gap-1.5">
-								<span class="text-muted-foreground truncate">{loser.title}</span>
-								<span class="text-xs text-muted-foreground flex-shrink-0">({loser.imdb_rating.toFixed(1)})</span>
-								{#if loser.imdb_id}
-									<a href={imdbUrl(loser.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0">IMDb</a>
+
+							<!-- Movie B -->
+							<div class="text-center {round.correctAnswer === 'B' ? 'ring-1 ring-green-500/40 rounded-lg p-2' : 'p-2'}">
+								{#if round.movieB.poster_path}
+									<img
+										src={posterUrl(round.movieB.poster_path)}
+										alt={round.movieB.title}
+										class="mx-auto mb-2 w-20 rounded-lg sm:w-24"
+									/>
+								{:else}
+									<div class="mx-auto mb-2 w-20 h-30 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground text-xs sm:w-24 sm:h-36">?</div>
+								{/if}
+								<p class="text-xs font-semibold truncate">{round.movieB.title}</p>
+								<p class="text-xs {round.correctAnswer === 'B' ? 'text-green-400 font-bold' : 'text-muted-foreground'}">{round.movieB.imdb_rating.toFixed(1)}</p>
+								{#if round.movieB.imdb_id}
+									<a href={imdbUrl(round.movieB.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-[10px] text-blue-400 hover:text-blue-300">IMDb</a>
 								{/if}
 							</div>
 						</div>
@@ -263,96 +316,98 @@
 			<span>Score: {score} / {currentRound + (currentRoundData.revealed ? 1 : 0)}</span>
 		</div>
 
-		<!-- Movie Cards -->
-		<div class="grid grid-cols-2 gap-4">
-			<!-- Movie A -->
-			<button
-				onclick={() => pickMovie('A')}
-				disabled={currentRoundData.revealed || transitioning}
-				class="group rounded-xl bg-black/40 backdrop-blur-sm border p-4 text-center transition-all
-					{currentRoundData.revealed
-						? currentRoundData.correctAnswer === 'A'
-							? 'border-green-500/60 bg-green-500/10'
-							: currentRoundData.userAnswer === 'A'
-								? 'border-red-500/60 bg-red-500/10'
-								: 'border-white/10'
-						: 'border-white/10 hover:border-orange-500/50 hover:bg-black/50 cursor-pointer'}"
-			>
-				{#if currentRoundData.movieA.poster_path}
-					<img
-						src={posterUrl(currentRoundData.movieA.poster_path)}
-						alt={currentRoundData.movieA.title}
-						class="mx-auto mb-3 w-32 rounded-lg shadow-lg sm:w-40"
-					/>
-				{:else}
-					<div class="mx-auto mb-3 w-32 h-48 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground sm:w-40 sm:h-60">
-						No Poster
-					</div>
-				{/if}
-				<h3 class="font-bold text-sm sm:text-base">{currentRoundData.movieA.title}</h3>
-				<p class="text-xs text-muted-foreground">{currentRoundData.movieA.year}</p>
+		<!-- Movie Cards with centered feedback overlay -->
+		<div class="relative">
+			<div class="grid grid-cols-2 gap-4">
+				<!-- Movie A -->
+				<button
+					onclick={() => pickMovie('A')}
+					disabled={currentRoundData.revealed || transitioning}
+					class="group rounded-xl bg-black/40 backdrop-blur-sm border p-4 text-center transition-all
+						{currentRoundData.revealed
+							? currentRoundData.correctAnswer === 'A'
+								? 'border-green-500/60 bg-green-500/10'
+								: currentRoundData.userAnswer === 'A'
+									? 'border-red-500/60 bg-red-500/10'
+									: 'border-white/10'
+							: 'border-white/10 hover:border-orange-500/50 hover:bg-black/50 cursor-pointer'}"
+				>
+					{#if currentRoundData.movieA.poster_path}
+						<img
+							src={posterUrl(currentRoundData.movieA.poster_path)}
+							alt={currentRoundData.movieA.title}
+							class="mx-auto mb-3 w-32 rounded-lg shadow-lg sm:w-40"
+						/>
+					{:else}
+						<div class="mx-auto mb-3 w-32 h-48 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground sm:w-40 sm:h-60">
+							No Poster
+						</div>
+					{/if}
+					<h3 class="font-bold text-sm sm:text-base">{currentRoundData.movieA.title}</h3>
+					<p class="text-xs text-muted-foreground">{currentRoundData.movieA.year}</p>
 
-				{#if currentRoundData.revealed}
-					<div class="mt-3">
-						<span class="text-lg font-bold {currentRoundData.correctAnswer === 'A' ? 'text-green-400' : 'text-muted-foreground'}">
-							{currentRoundData.movieA.imdb_rating.toFixed(1)}
-						</span>
-						{#if currentRoundData.correctAnswer === 'A'}
-							<span class="ml-1 text-xs font-semibold text-green-400">Higher!</span>
-						{/if}
-					</div>
-				{/if}
-			</button>
+					{#if currentRoundData.revealed}
+						<div class="mt-3">
+							<span class="text-lg font-bold {currentRoundData.correctAnswer === 'A' ? 'text-green-400' : 'text-muted-foreground'}">
+								{currentRoundData.movieA.imdb_rating.toFixed(1)}
+							</span>
+							{#if currentRoundData.correctAnswer === 'A'}
+								<span class="ml-1 text-xs font-semibold text-green-400">Higher!</span>
+							{/if}
+						</div>
+					{/if}
+				</button>
 
-			<!-- Movie B -->
-			<button
-				onclick={() => pickMovie('B')}
-				disabled={currentRoundData.revealed || transitioning}
-				class="group rounded-xl bg-black/40 backdrop-blur-sm border p-4 text-center transition-all
-					{currentRoundData.revealed
-						? currentRoundData.correctAnswer === 'B'
-							? 'border-green-500/60 bg-green-500/10'
-							: currentRoundData.userAnswer === 'B'
-								? 'border-red-500/60 bg-red-500/10'
-								: 'border-white/10'
-						: 'border-white/10 hover:border-orange-500/50 hover:bg-black/50 cursor-pointer'}"
-			>
-				{#if currentRoundData.movieB.poster_path}
-					<img
-						src={posterUrl(currentRoundData.movieB.poster_path)}
-						alt={currentRoundData.movieB.title}
-						class="mx-auto mb-3 w-32 rounded-lg shadow-lg sm:w-40"
-					/>
-				{:else}
-					<div class="mx-auto mb-3 w-32 h-48 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground sm:w-40 sm:h-60">
-						No Poster
-					</div>
-				{/if}
-				<h3 class="font-bold text-sm sm:text-base">{currentRoundData.movieB.title}</h3>
-				<p class="text-xs text-muted-foreground">{currentRoundData.movieB.year}</p>
+				<!-- Movie B -->
+				<button
+					onclick={() => pickMovie('B')}
+					disabled={currentRoundData.revealed || transitioning}
+					class="group rounded-xl bg-black/40 backdrop-blur-sm border p-4 text-center transition-all
+						{currentRoundData.revealed
+							? currentRoundData.correctAnswer === 'B'
+								? 'border-green-500/60 bg-green-500/10'
+								: currentRoundData.userAnswer === 'B'
+									? 'border-red-500/60 bg-red-500/10'
+									: 'border-white/10'
+							: 'border-white/10 hover:border-orange-500/50 hover:bg-black/50 cursor-pointer'}"
+				>
+					{#if currentRoundData.movieB.poster_path}
+						<img
+							src={posterUrl(currentRoundData.movieB.poster_path)}
+							alt={currentRoundData.movieB.title}
+							class="mx-auto mb-3 w-32 rounded-lg shadow-lg sm:w-40"
+						/>
+					{:else}
+						<div class="mx-auto mb-3 w-32 h-48 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground sm:w-40 sm:h-60">
+							No Poster
+						</div>
+					{/if}
+					<h3 class="font-bold text-sm sm:text-base">{currentRoundData.movieB.title}</h3>
+					<p class="text-xs text-muted-foreground">{currentRoundData.movieB.year}</p>
 
-				{#if currentRoundData.revealed}
-					<div class="mt-3">
-						<span class="text-lg font-bold {currentRoundData.correctAnswer === 'B' ? 'text-green-400' : 'text-muted-foreground'}">
-							{currentRoundData.movieB.imdb_rating.toFixed(1)}
-						</span>
-						{#if currentRoundData.correctAnswer === 'B'}
-							<span class="ml-1 text-xs font-semibold text-green-400">Higher!</span>
-						{/if}
-					</div>
-				{/if}
-			</button>
-		</div>
-
-		<!-- Feedback after pick -->
-		{#if currentRoundData.revealed}
-			<div class="mt-4 text-center text-sm">
-				{#if currentRoundData.userAnswer === currentRoundData.correctAnswer}
-					<span class="text-green-400 font-semibold">Correct!</span>
-				{:else}
-					<span class="text-red-400 font-semibold">Wrong!</span>
-				{/if}
+					{#if currentRoundData.revealed}
+						<div class="mt-3">
+							<span class="text-lg font-bold {currentRoundData.correctAnswer === 'B' ? 'text-green-400' : 'text-muted-foreground'}">
+								{currentRoundData.movieB.imdb_rating.toFixed(1)}
+							</span>
+							{#if currentRoundData.correctAnswer === 'B'}
+								<span class="ml-1 text-xs font-semibold text-green-400">Higher!</span>
+							{/if}
+						</div>
+					{/if}
+				</button>
 			</div>
-		{/if}
+
+			<!-- Centered feedback badge (overlays between the two cards) -->
+			{#if feedbackVisible && currentRoundData.revealed}
+				{@const isCorrect = currentRoundData.userAnswer === currentRoundData.correctAnswer}
+				<div
+					class="feedback-badge absolute top-1/2 left-1/2 z-10 rounded-full px-5 py-2 text-sm font-bold shadow-lg
+						{isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}"
+				>
+					{isCorrect ? 'Correct!' : 'Wrong!'}
+				</div>
+			{/if}
+		</div>
 	{/if}
 </main>

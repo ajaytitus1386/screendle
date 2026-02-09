@@ -1,20 +1,24 @@
 import { json } from '@sveltejs/kit';
+import { rowToMovie } from '$lib/db';
 import { getDailyMovieId, getRandomMovieId } from '$lib/daily';
-import { getEnrichedMovie } from '$lib/api';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, platform }) => {
 	const random = url.searchParams.get('random') === 'true';
-	const movieId = random ? getRandomMovieId() : getDailyMovieId();
+	const tmdbId = random ? getRandomMovieId() : getDailyMovieId();
 
 	try {
-		const movie = await getEnrichedMovie(movieId);
+		const db = platform!.env.DB;
+		const row = await db
+			.prepare('SELECT * FROM movies WHERE tmdb_id = ?')
+			.bind(tmdbId)
+			.first();
 
-		if (!movie) {
-			return json({ error: 'Failed to fetch daily movie' }, { status: 500 });
+		if (!row) {
+			return json({ error: 'Movie not found in database' }, { status: 404 });
 		}
 
-		return json({ movie });
+		return json({ movie: rowToMovie(row) });
 	} catch (error) {
 		console.error('Daily movie fetch error:', error);
 		return json({ error: 'Failed to fetch daily movie' }, { status: 500 });

@@ -1,30 +1,33 @@
 import { json } from '@sveltejs/kit';
+import { rowToMovie } from '$lib/db';
 import { getDailyScalesMovieIds, getTodaysSeed, seededRandom } from '$lib/daily';
-import { getEnrichedMovie } from '$lib/api';
 import type { Movie } from '$lib/types';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ platform }) => {
 	const seed = getTodaysSeed();
 	const movieIds = getDailyScalesMovieIds(seed);
 
 	try {
-		// Fetch all 20 movies in parallel
-		const movies = await Promise.all(
-			movieIds.map(async (id) => {
-				try {
-					return await getEnrichedMovie(id);
-				} catch (error) {
-					console.error(`Failed to fetch movie ${id}:`, error);
-					return null;
-				}
-			})
-		);
+		const db = platform!.env.DB;
 
-		// Filter out failed fetches and movies with no rating
-		const validMovies = movies.filter(
-			(m): m is Movie => m !== null && m.imdb_rating > 0
-		);
+		// Fetch all 20 movies from D1
+		const placeholders = movieIds.map(() => '?').join(',');
+		const { results } = await db
+			.prepare(`SELECT * FROM movies WHERE tmdb_id IN (${placeholders})`)
+			.bind(...movieIds)
+			.all();
+
+		// Build a lookup map and preserve the original order
+		const movieMap = new Map<number, Movie>();
+		for (const row of results) {
+			movieMap.set(row.tmdb_id as number, rowToMovie(row));
+		}
+
+		// Get movies in original order, filter out missing/unrated
+		const validMovies = movieIds
+			.map((id) => movieMap.get(id))
+			.filter((m): m is Movie => m !== undefined && m.imdb_rating > 0);
 
 		// Create pairs from consecutive movies
 		const rawPairs: { movieA: Movie; movieB: Movie; gap: number }[] = [];

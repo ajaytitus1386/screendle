@@ -1,0 +1,7 @@
+name = "screendle"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "screendle-db"
+database_id = "" # Fill after running: wrangler d1 create screendle-db

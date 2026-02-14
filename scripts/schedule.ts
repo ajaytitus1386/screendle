@@ -16,8 +16,9 @@
  *   --dry-run          Print SQL to stdout, don't write file
  */
 
-import { writeFileSync } from 'fs';
+import { writeFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
@@ -90,26 +91,29 @@ function parseArgs(argv: string[]): Record<string, string | boolean> {
 
 // ---------------------------------------------------------------------------
 // D1 query via wrangler CLI
+// Uses temp files instead of --command to avoid shell escaping issues in CI
 // ---------------------------------------------------------------------------
 
 function queryD1(sql: string, remote: boolean): any[] {
 	const flag = remote ? '' : '--local';
-	// Escape double quotes for shell
-	const escaped = sql.replace(/"/g, '\\"').replace(/\n/g, ' ');
+	const tmpFile = join(tmpdir(), `screendle-query-${Date.now()}.sql`);
+	writeFileSync(tmpFile, sql, 'utf-8');
 	try {
 		const out = execSync(
-			`npx wrangler d1 execute screendle-db ${flag} --command="${escaped}" --json`,
+			`npx wrangler d1 execute screendle-db ${flag} --file="${tmpFile}" --json`,
 			{ encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
 		);
-		// wrangler outputs to stderr as well; find the JSON array in stdout
 		const jsonMatch = out.match(/\[[\s\S]*\]/);
 		if (!jsonMatch) return [];
 		const parsed = JSON.parse(jsonMatch[0]);
 		return parsed[0]?.results ?? [];
 	} catch (e: any) {
-		console.error('D1 query failed:', sql.slice(0, 80));
-		console.error(e.stderr ?? e.message);
+		console.error('D1 query failed:');
+		console.error('SQL:', sql);
+		console.error('Error:', e.stderr ?? e.stdout ?? e.message);
 		process.exit(1);
+	} finally {
+		try { unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }
 	}
 }
 

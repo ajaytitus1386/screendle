@@ -12,12 +12,27 @@ node_modules
 .DS_Store
 Thumbs.db
 
-# Env
+# Env / secrets
 .env
 .env.*
+.dev.vars
 !.env.example
 !.env.test
 
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Claude local settings (machine-specific)
+.claude/settings.local.json
+
+# Generated DB seed/schedule files (large, regenerable)
+scripts/seed.sql
+scripts/seed-clean.sql
+scripts/schedule.sql
+scripts/chunks/
+scripts/.checkpoint.json
+scripts/.ids-cache.json
+
+# Windows artifacts
+nul

@@ -42,7 +42,7 @@
 		onclick={handleBackdropClick}
 	>
 		<!-- Modal -->
-		<div class="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-background/95 border border-white/10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
+		<div class="relative w-full max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden rounded-2xl bg-background/95 border border-white/10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-200">
 			<!-- Close button -->
 			<button
 				onclick={onClose}
@@ -94,7 +94,7 @@
 								<p class="text-xs text-muted-foreground mb-3">Each guess shows 7 properties compared to the target movie:</p>
 
 								<!-- Mock game row -->
-								<div class="flex gap-1.5 overflow-x-auto pb-1 mb-3">
+								<div class="flex gap-1.5 overflow-x-auto pb-1 mb-3 -mx-1 px-1">
 									<div class="flex-shrink-0 w-10 h-10 rounded bg-black/60 flex items-center justify-center text-[8px] text-muted-foreground">Poster</div>
 									<div class="flex-shrink-0 w-14 h-10 rounded bg-orange-500/70 flex items-center justify-center text-[9px]">Drama</div>
 									<div class="flex-shrink-0 w-12 h-10 rounded bg-red-600/50 flex flex-col items-center justify-center text-[9px]"><span>2015</span><span class="text-[10px]">↑</span></div>

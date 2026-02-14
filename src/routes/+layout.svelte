@@ -29,7 +29,7 @@
 	<title>Screendle - Daily Movie Guessing Game</title>
 </svelte:head>
 
-<div class="dark min-h-screen bg-background text-foreground">
+<div class="dark min-h-screen bg-background text-foreground overflow-x-hidden">
 	<!-- Navbar -->
 	<nav class="h-12 flex items-center justify-between px-4 border-b border-white/5">
 		<div class="w-10">

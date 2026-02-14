@@ -2,10 +2,17 @@
  * Movie Ingestion Script for Screendle
  *
  * Fetches popular movies from TMDB, enriches with OMDB data,
- * and outputs SQL INSERT statements for D1.
+ * and writes SQL INSERT statements to scripts/seed.sql.
+ *
+ * Features:
+ *   - Resumable: tracks processed IDs in scripts/.checkpoint.json
+ *   - Appends to seed.sql so partial runs are preserved
+ *   - Batches INSERTs in transactions of 500 for safer D1 imports
  *
  * Usage:
- *   npx tsx scripts/ingest.ts > scripts/seed.sql
+ *   npx tsx scripts/ingest.ts
+ *
+ * To start fresh, delete scripts/.checkpoint.json and scripts/seed.sql
  *
  * Then apply to D1:
  *   wrangler d1 execute screendle-db --local --file=scripts/schema.sql
@@ -15,6 +22,14 @@
  */
 
 import 'dotenv/config';
+import { writeFileSync, appendFileSync, readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SEED_FILE = join(__dirname, 'seed.sql');
+const CHECKPOINT_FILE = join(__dirname, '.checkpoint.json');
+const IDS_CACHE_FILE = join(__dirname, '.ids-cache.json');
 
 const TMDB_ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
@@ -48,6 +63,7 @@ const TMDB_DELAY_MS = 250;
 
 const TARGET_MOVIES = 5000;
 const TMDB_PAGES = Math.ceil(TARGET_MOVIES / 20); // 20 results per page
+const BATCH_SIZE = 500; // wrap this many INSERTs in a transaction
 
 interface MovieRow {
 	tmdb_id: number;
@@ -61,6 +77,42 @@ interface MovieRow {
 	keywords: string[];
 	country: string;
 	poster_url: string | null;
+}
+
+interface Checkpoint {
+	processedIds: number[];
+	ingested: number;
+	skipped: number;
+}
+
+function loadCheckpoint(): Checkpoint {
+	if (existsSync(CHECKPOINT_FILE)) {
+		try {
+			return JSON.parse(readFileSync(CHECKPOINT_FILE, 'utf-8'));
+		} catch {
+			console.error('Corrupted checkpoint file, starting fresh');
+		}
+	}
+	return { processedIds: [], ingested: 0, skipped: 0 };
+}
+
+function saveCheckpoint(cp: Checkpoint): void {
+	writeFileSync(CHECKPOINT_FILE, JSON.stringify(cp));
+}
+
+function loadIdsCache(): number[] | null {
+	if (existsSync(IDS_CACHE_FILE)) {
+		try {
+			return JSON.parse(readFileSync(IDS_CACHE_FILE, 'utf-8'));
+		} catch {
+			return null;
+		}
+	}
+	return null;
+}
+
+function saveIdsCache(ids: number[]): void {
+	writeFileSync(IDS_CACHE_FILE, JSON.stringify(ids));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -150,6 +202,13 @@ async function fetchMovieDetails(tmdbId: number): Promise<MovieRow | null> {
 }
 
 async function discoverMovieIds(): Promise<number[]> {
+	// Use cached IDs if available (discovery is slow and deterministic)
+	const cached = loadIdsCache();
+	if (cached && cached.length > 0) {
+		console.error(`Loaded ${cached.length} movie IDs from cache`);
+		return cached;
+	}
+
 	const ids = new Set<number>();
 
 	console.error(`Fetching up to ${TMDB_PAGES} pages from TMDB discover...`);
@@ -176,54 +235,110 @@ async function discoverMovieIds(): Promise<number[]> {
 		}
 	}
 
-	console.error(`Collected ${ids.size} unique movie IDs`);
-	return [...ids];
+	const result = [...ids];
+	console.error(`Collected ${result.length} unique movie IDs`);
+
+	// Cache for resume
+	saveIdsCache(result);
+	return result;
+}
+
+function movieToSQL(movie: MovieRow): string {
+	return (
+		`INSERT OR IGNORE INTO movies (tmdb_id, imdb_id, title, year, runtime, imdb_rating, director, genres, keywords, country, poster_url) VALUES (` +
+		`${movie.tmdb_id}, ` +
+		`${movie.imdb_id ? `'${escapeSQL(movie.imdb_id)}'` : 'NULL'}, ` +
+		`'${escapeSQL(movie.title)}', ` +
+		`${movie.year}, ` +
+		`${movie.runtime}, ` +
+		`${movie.imdb_rating}, ` +
+		`'${escapeSQL(movie.director)}', ` +
+		`'${escapeSQL(JSON.stringify(movie.genres))}', ` +
+		`'${escapeSQL(JSON.stringify(movie.keywords))}', ` +
+		`'${escapeSQL(movie.country)}', ` +
+		`${movie.poster_url ? `'${escapeSQL(movie.poster_url)}'` : 'NULL'}` +
+		`);`
+	);
 }
 
 async function main() {
 	const ids = await discoverMovieIds();
+	const checkpoint = loadCheckpoint();
+	const processedSet = new Set(checkpoint.processedIds);
 
-	console.log('-- Screendle movie seed data');
-	console.log('-- Generated: ' + new Date().toISOString());
-	console.log('');
+	const remaining = ids.filter((id) => !processedSet.has(id));
 
-	let ingested = 0;
-	let skipped = 0;
+	if (remaining.length === 0) {
+		console.error('All movies already processed! Nothing to do.');
+		console.error(`Total: ${checkpoint.ingested} ingested, ${checkpoint.skipped} skipped`);
+		return;
+	}
 
-	for (let i = 0; i < ids.length; i++) {
-		const movie = await fetchMovieDetails(ids[i]);
+	console.error(
+		`Resuming: ${processedSet.size} already done, ${remaining.length} remaining`
+	);
+
+	// If starting fresh, write the header
+	if (checkpoint.processedIds.length === 0) {
+		writeFileSync(
+			SEED_FILE,
+			`-- Screendle movie seed data\n-- Generated: ${new Date().toISOString()}\n\n`
+		);
+	}
+
+	let { ingested, skipped } = checkpoint;
+	let batchBuffer: string[] = [];
+
+	function flushBatch() {
+		if (batchBuffer.length === 0) return;
+		const block = `BEGIN TRANSACTION;\n${batchBuffer.join('\n')}\nCOMMIT;\n\n`;
+		appendFileSync(SEED_FILE, block);
+		batchBuffer = [];
+	}
+
+	for (let i = 0; i < remaining.length; i++) {
+		const tmdbId = remaining[i];
+		const movie = await fetchMovieDetails(tmdbId);
+
+		processedSet.add(tmdbId);
 
 		if (!movie || movie.year === 0 || movie.runtime === 0) {
 			skipped++;
-			continue;
+		} else {
+			batchBuffer.push(movieToSQL(movie));
+			ingested++;
 		}
 
-		const sql =
-			`INSERT OR IGNORE INTO movies (tmdb_id, imdb_id, title, year, runtime, imdb_rating, director, genres, keywords, country, poster_url) VALUES (` +
-			`${movie.tmdb_id}, ` +
-			`${movie.imdb_id ? `'${escapeSQL(movie.imdb_id)}'` : 'NULL'}, ` +
-			`'${escapeSQL(movie.title)}', ` +
-			`${movie.year}, ` +
-			`${movie.runtime}, ` +
-			`${movie.imdb_rating}, ` +
-			`'${escapeSQL(movie.director)}', ` +
-			`'${escapeSQL(JSON.stringify(movie.genres))}', ` +
-			`'${escapeSQL(JSON.stringify(movie.keywords))}', ` +
-			`'${escapeSQL(movie.country)}', ` +
-			`${movie.poster_url ? `'${escapeSQL(movie.poster_url)}'` : 'NULL'}` +
-			`);`;
+		// Flush batch every BATCH_SIZE inserts
+		if (batchBuffer.length >= BATCH_SIZE) {
+			flushBatch();
+		}
 
-		console.log(sql);
-		ingested++;
-
-		if ((i + 1) % 100 === 0) {
-			console.error(`  Progress: ${i + 1}/${ids.length} (${ingested} ingested, ${skipped} skipped)`);
+		// Save checkpoint every 50 movies
+		if ((i + 1) % 50 === 0) {
+			checkpoint.processedIds = [...processedSet];
+			checkpoint.ingested = ingested;
+			checkpoint.skipped = skipped;
+			saveCheckpoint(checkpoint);
+			console.error(
+				`  Progress: ${processedSet.size}/${ids.length} (${ingested} ingested, ${skipped} skipped)`
+			);
 		}
 
 		await sleep(TMDB_DELAY_MS);
 	}
 
+	// Flush remaining
+	flushBatch();
+
+	// Final checkpoint
+	checkpoint.processedIds = [...processedSet];
+	checkpoint.ingested = ingested;
+	checkpoint.skipped = skipped;
+	saveCheckpoint(checkpoint);
+
 	console.error(`\nDone! Ingested ${ingested} movies, skipped ${skipped}`);
+	console.error(`Output: ${SEED_FILE}`);
 }
 
 main().catch((err) => {

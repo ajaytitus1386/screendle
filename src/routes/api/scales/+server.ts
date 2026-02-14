@@ -1,15 +1,54 @@
 import { json } from '@sveltejs/kit';
-import { rowToMovie } from '$lib/db';
-import { getDailyScalesMovieIds, getTodaysSeed, seededRandom } from '$lib/daily';
+import { rowToMovie, rowToMovieFromAlias } from '$lib/db';
+import { getDailyScalesMovieIds, getTodaysSeed, getTodaysDateKey, seededRandom } from '$lib/daily';
 import type { Movie } from '$lib/types';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ platform }) => {
-	const seed = getTodaysSeed();
-	const movieIds = getDailyScalesMovieIds(seed);
+	const db = platform!.env.DB;
 
 	try {
-		const db = platform!.env.DB;
+		const today = getTodaysDateKey();
+
+		// Primary path: read from pre-scheduled scales_rounds table
+		const { results: scheduledRounds } = await db
+			.prepare(`
+				SELECT
+					sr.round_number,
+					ma.tmdb_id AS a_tmdb_id, ma.imdb_id AS a_imdb_id, ma.title AS a_title,
+					ma.year AS a_year, ma.runtime AS a_runtime, ma.imdb_rating AS a_imdb_rating,
+					ma.director AS a_director, ma.genres AS a_genres, ma.keywords AS a_keywords,
+					ma.country AS a_country, ma.poster_url AS a_poster_url,
+					mb.tmdb_id AS b_tmdb_id, mb.imdb_id AS b_imdb_id, mb.title AS b_title,
+					mb.year AS b_year, mb.runtime AS b_runtime, mb.imdb_rating AS b_imdb_rating,
+					mb.director AS b_director, mb.genres AS b_genres, mb.keywords AS b_keywords,
+					mb.country AS b_country, mb.poster_url AS b_poster_url
+				FROM scales_rounds sr
+				JOIN movies ma ON ma.id = sr.movie_a_id
+				JOIN movies mb ON mb.id = sr.movie_b_id
+				WHERE sr.date = ?
+				ORDER BY sr.round_number ASC
+			`)
+			.bind(today)
+			.all();
+
+		if (scheduledRounds.length === 10) {
+			const pairs = scheduledRounds.map((row) => ({
+				movieA: rowToMovieFromAlias(row, 'a'),
+				movieB: rowToMovieFromAlias(row, 'b')
+			}));
+			return json({ pairs });
+		}
+
+		// Fallback: seeded RNG (backward-compatible, used until schedule is populated)
+		if (scheduledRounds.length > 0) {
+			console.warn(`Only ${scheduledRounds.length} scales_rounds for ${today}, falling back to seeded RNG`);
+		} else {
+			console.warn(`No scales_rounds for ${today}, using seeded RNG fallback`);
+		}
+
+		const seed = getTodaysSeed();
+		const movieIds = getDailyScalesMovieIds(seed);
 
 		// Fetch all 20 movies from D1
 		const placeholders = movieIds.map(() => '?').join(',');

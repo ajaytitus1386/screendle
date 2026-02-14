@@ -9,7 +9,13 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"schedule": "npx tsx scripts/schedule.ts",
+		"schedule:remote": "npx tsx scripts/schedule.ts --remote",
+		"schedule:apply:local": "npx wrangler d1 execute screendle-db --local --file=scripts/schedule.sql",
+		"schedule:apply:remote": "npx wrangler d1 execute screendle-db --file=scripts/schedule.sql",
+		"db:migrate:local": "npx wrangler d1 execute screendle-db --local --file=scripts/migrate-schedule.sql",
+		"db:migrate:remote": "npx wrangler d1 execute screendle-db --file=scripts/migrate-schedule.sql"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^0.562.0",

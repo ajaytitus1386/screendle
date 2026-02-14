@@ -147,6 +147,23 @@
 	}
 
 	let currentRoundData = $derived(rounds.length > 0 ? rounds[currentRound] : null);
+
+	let shareCopied = $state(false);
+
+	function buildShareText(): string {
+		const date = getTodaysDateKey();
+		const emojis = rounds.map(r => r.userAnswer === r.correctAnswer ? '✅' : '❌').join('');
+		return `Screendle Scales · ${date}\n${score}/${rounds.length}\n\n${emojis}\n\nscreendle.pages.dev/scales`;
+	}
+
+	async function share() {
+		const text = buildShareText();
+		try {
+			await navigator.clipboard.writeText(text);
+			shareCopied = true;
+			setTimeout(() => { shareCopied = false; }, 2000);
+		} catch {}
+	}
 </script>
 
 <style>
@@ -228,6 +245,13 @@
 					</div>
 				{/each}
 			</div>
+
+			<button
+				onclick={share}
+				class="mb-6 rounded-lg bg-white/10 px-6 py-2 font-semibold hover:bg-white/20 transition-colors"
+			>
+				{shareCopied ? 'Copied!' : 'Share'}
+			</button>
 
 			<!-- Pair Review List -->
 			<div class="mb-8 space-y-4">

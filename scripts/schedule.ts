@@ -199,7 +199,7 @@ async function main() {
 
 	console.error('Fetching eligible movies from D1...');
 	const allMovies: { id: number; tmdb_id: number; imdb_rating: number }[] = await queryD1(
-		`SELECT id, tmdb_id, imdb_rating FROM movies WHERE imdb_rating > 0`,
+		`SELECT id, tmdb_id, imdb_rating FROM movies WHERE imdb_rating >= 6.5`,
 		REMOTE
 	);
 

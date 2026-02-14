@@ -26,33 +26,72 @@
 	let targetMovie: Movie | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
+	let shareCopied = $state(false);
 
 	onMount(async () => {
+		const today = getTodaysDateKey();
+		const saved = localStorage.getItem(STORAGE_KEY);
+		if (saved) {
+			try {
+				const parsed: GameSave = JSON.parse(saved);
+				if (parsed.date === today) {
+					// Fetch today's movie to populate targetMovie
+					const res = await fetch('/api/daily');
+					if (res.ok) {
+						const data = await res.json();
+						targetMovie = data.movie;
+						guesses = parsed.guesses;
+						gameOver = parsed.gameOver;
+						won = parsed.won;
+						loading = false;
+						return;
+					}
+				}
+			} catch { /* fall through to fresh game */ }
+		}
 		await loadGame();
 	});
 
 	async function loadGame() {
 		loading = true;
 		error = '';
-
 		try {
-			// Fetch a random movie (for testing) - change to '/api/daily' for production
-			const response = await fetch('/api/daily?random=true');
-			if (!response.ok) {
-				throw new Error('Failed to fetch movie');
-			}
+			const response = await fetch('/api/daily');
+			if (!response.ok) throw new Error('Failed to fetch movie');
 			const data = await response.json();
 			targetMovie = data.movie;
-
-			// Reset game state for random mode
 			guesses = [];
 			gameOver = false;
 			won = false;
 		} catch (e) {
 			console.error('Failed to load game:', e);
-			error = 'Failed to load today\'s puzzle. Please try refreshing.';
+			error = "Failed to load today's puzzle. Please try refreshing.";
 		} finally {
 			loading = false;
+		}
+	}
+
+	function buildShareText(): string {
+		const date = getTodaysDateKey();
+		const guessCount = won ? `${guesses.length}/10` : 'X/10';
+		const emojiMap: Record<string, string> = { exact: '🟩', partial: '🟧', none: '🟥' };
+		const rows = guesses.map(g => {
+			const m = g.matches;
+			return [m.genre, m.year, m.runtime, m.imdb_rating, m.director, m.keywords, m.country]
+				.map(p => emojiMap[p.match])
+				.join('');
+		}).join('\n');
+		return `Screendle Classic · ${date}\n${guessCount}\n\n${rows}\n\nscreendle.pages.dev/classic`;
+	}
+
+	async function share() {
+		const text = buildShareText();
+		try {
+			await navigator.clipboard.writeText(text);
+			shareCopied = true;
+			setTimeout(() => { shareCopied = false; }, 2000);
+		} catch {
+			// fallback: select a textarea
 		}
 	}
 
@@ -352,7 +391,13 @@
 					</div>
 				{/if}
 				<button
-					onclick={loadGame}
+					onclick={share}
+					class="mt-4 mr-2 rounded-lg bg-white/10 px-6 py-2 font-semibold hover:bg-white/20 transition-colors"
+				>
+					{shareCopied ? 'Copied!' : 'Share'}
+				</button>
+				<button
+					onclick={() => fetch('/api/daily?random=true').then(r => r.json()).then(data => { targetMovie = data.movie; guesses = []; gameOver = false; won = false; })}
 					class="mt-4 rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
 				>
 					New Game

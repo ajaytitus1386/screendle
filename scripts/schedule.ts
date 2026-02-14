@@ -22,6 +22,9 @@ import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
+// D1 database ID — not a secret (resource identifier, not a credential)
+const D1_DATABASE_ID = '4b5e7481-ca5a-46c9-969e-205d64c30ea3';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
@@ -90,19 +93,45 @@ function parseArgs(argv: string[]): Record<string, string | boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// D1 query via wrangler CLI
-// Uses temp files instead of --command to avoid shell escaping issues in CI
+// D1 query helpers
+// Remote: Cloudflare REST API (non-locking, returns full result sets)
+// Local:  wrangler CLI with --local flag
 // ---------------------------------------------------------------------------
 
-function queryD1(sql: string, remote: boolean): any[] {
-	const flag = remote ? '--remote' : '--local';
+async function queryD1Remote(sql: string): Promise<any[]> {
+	const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+	const token = process.env.CLOUDFLARE_API_TOKEN;
+
+	if (!accountId || !token) {
+		console.error('ERROR: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set for --remote queries');
+		process.exit(1);
+	}
+
+	const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${D1_DATABASE_ID}/query`;
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ sql, params: [] })
+	});
+
+	const data = await res.json() as any;
+	if (!data.success) {
+		console.error('D1 REST API query failed:', JSON.stringify(data.errors));
+		console.error('SQL:', sql);
+		process.exit(1);
+	}
+	return data.result?.[0]?.results ?? [];
+}
+
+function queryD1Local(sql: string): any[] {
 	const tmpFile = join(tmpdir(), `screendle-query-${Date.now()}.sql`);
 	writeFileSync(tmpFile, sql, 'utf-8');
 	try {
-		// wrangler d1 execute outputs JSON to stdout by default (no --json flag needed)
-		// stderr goes to inherit so CI logs show wrangler's own warnings/errors
 		const out = execSync(
-			`npx wrangler d1 execute screendle-db ${flag} --file="${tmpFile}"`,
+			`npx wrangler d1 execute screendle-db --local --file="${tmpFile}"`,
 			{ encoding: 'utf-8', stdio: ['pipe', 'pipe', 'inherit'] }
 		);
 		const jsonMatch = out.match(/\[[\s\S]*\]/);
@@ -120,6 +149,10 @@ function queryD1(sql: string, remote: boolean): any[] {
 	} finally {
 		try { unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }
 	}
+}
+
+async function queryD1(sql: string, remote: boolean): Promise<any[]> {
+	return remote ? queryD1Remote(sql) : queryD1Local(sql);
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +180,7 @@ async function main() {
 
 	console.error('Reading existing daily_puzzles...');
 	const lookbackStart = subtractDays(START_DATE, LOOKBACK);
-	const existingClassic = queryD1(
+	const existingClassic = await queryD1(
 		`SELECT dp.date, m.tmdb_id FROM daily_puzzles dp JOIN movies m ON m.id = dp.movie_id WHERE dp.date >= '${lookbackStart}'`,
 		REMOTE
 	);
@@ -156,16 +189,16 @@ async function main() {
 	);
 
 	console.error('Reading existing scales_rounds...');
-	const existingScalesDates = queryD1(
+	const existingScalesDates = (await queryD1(
 		`SELECT DISTINCT date FROM scales_rounds WHERE date >= '${START_DATE}'`,
 		REMOTE
-	).map(r => r.date);
+	)).map(r => r.date);
 	const scheduledScalesDates = new Set<string>(existingScalesDates);
 
 	// ---- 2. Fetch eligible movie pool ----------------------------------------
 
 	console.error('Fetching eligible movies from D1...');
-	const allMovies: { id: number; tmdb_id: number; imdb_rating: number }[] = queryD1(
+	const allMovies: { id: number; tmdb_id: number; imdb_rating: number }[] = await queryD1(
 		`SELECT id, tmdb_id, imdb_rating FROM movies WHERE imdb_rating > 0`,
 		REMOTE
 	);

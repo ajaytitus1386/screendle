@@ -1,7 +1,8 @@
 -- Migration: add category column to daily_puzzles
--- Safe to run multiple times (SQLite ALTER TABLE ADD COLUMN is idempotent if column already exists via IF NOT EXISTS workaround)
--- Run: npx wrangler d1 execute screendle-db --local --file=scripts/migrate-schedule.sql
---      npx wrangler d1 execute screendle-db --file=scripts/migrate-schedule.sql
+-- SQLite does not support ALTER TABLE ADD COLUMN IF NOT EXISTS.
+-- If the column already exists this will error — that is safe to ignore.
+-- Run: npm run db:migrate:local
+--      npm run db:migrate:remote
 
 ALTER TABLE daily_puzzles ADD COLUMN category TEXT NOT NULL DEFAULT 'default';
 CREATE INDEX IF NOT EXISTS idx_daily_puzzles_category ON daily_puzzles(category);

@@ -13,9 +13,9 @@
 		"schedule": "npx tsx scripts/schedule.ts",
 		"schedule:remote": "npx tsx scripts/schedule.ts --remote",
 		"schedule:apply:local": "npx wrangler d1 execute screendle-db --local --file=scripts/schedule.sql",
-		"schedule:apply:remote": "npx wrangler d1 execute screendle-db --file=scripts/schedule.sql",
+		"schedule:apply:remote": "npx wrangler d1 execute screendle-db --remote --file=scripts/schedule.sql",
 		"db:migrate:local": "npx wrangler d1 execute screendle-db --local --file=scripts/migrate-schedule.sql",
-		"db:migrate:remote": "npx wrangler d1 execute screendle-db --file=scripts/migrate-schedule.sql"
+		"db:migrate:remote": "npx wrangler d1 execute screendle-db --remote --file=scripts/migrate-schedule.sql"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^0.562.0",

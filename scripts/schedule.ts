@@ -95,7 +95,7 @@ function parseArgs(argv: string[]): Record<string, string | boolean> {
 // ---------------------------------------------------------------------------
 
 function queryD1(sql: string, remote: boolean): any[] {
-	const flag = remote ? '' : '--local';
+	const flag = remote ? '--remote' : '--local';
 	const tmpFile = join(tmpdir(), `screendle-query-${Date.now()}.sql`);
 	writeFileSync(tmpFile, sql, 'utf-8');
 	try {

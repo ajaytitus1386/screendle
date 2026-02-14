@@ -99,18 +99,23 @@ function queryD1(sql: string, remote: boolean): any[] {
 	const tmpFile = join(tmpdir(), `screendle-query-${Date.now()}.sql`);
 	writeFileSync(tmpFile, sql, 'utf-8');
 	try {
+		// wrangler d1 execute outputs JSON to stdout by default (no --json flag needed)
+		// stderr goes to inherit so CI logs show wrangler's own warnings/errors
 		const out = execSync(
-			`npx wrangler d1 execute screendle-db ${flag} --file="${tmpFile}" --json`,
-			{ encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+			`npx wrangler d1 execute screendle-db ${flag} --file="${tmpFile}"`,
+			{ encoding: 'utf-8', stdio: ['pipe', 'pipe', 'inherit'] }
 		);
 		const jsonMatch = out.match(/\[[\s\S]*\]/);
-		if (!jsonMatch) return [];
+		if (!jsonMatch) {
+			console.error('D1 query returned no JSON. Raw output:', out.slice(0, 200));
+			return [];
+		}
 		const parsed = JSON.parse(jsonMatch[0]);
 		return parsed[0]?.results ?? [];
 	} catch (e: any) {
 		console.error('D1 query failed:');
 		console.error('SQL:', sql);
-		console.error('Error:', e.stderr ?? e.stdout ?? e.message);
+		console.error('stdout:', e.stdout ?? '(empty)');
 		process.exit(1);
 	} finally {
 		try { unlinkSync(tmpFile); } catch { /* ignore cleanup errors */ }

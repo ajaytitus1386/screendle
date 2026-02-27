@@ -6,8 +6,8 @@
 ## v1 Requirements
 
 ### Foundation
-- [ ] **FOUN-01**: CRT color palette defined as CSS custom properties and Tailwind utilities (amber #faa622, yellow #ffe52c, cyan #7fe6ef, lime #c4d70c, red #c22303)
-- [ ] **FOUN-02**: Dark theme base applied globally (dirt black ~#1a1a1a background, near-white ~#f5f0e8 text)
+- [x] **FOUN-01**: CRT color palette defined as CSS custom properties and Tailwind utilities (amber #faa622, yellow #ffe52c, cyan #7fe6ef, lime #c4d70c, red #c22303)
+- [x] **FOUN-02**: Dark theme base applied globally (dirt black ~#1a1a1a background, near-white ~#f5f0e8 text)
 - [ ] **FOUN-03**: Subtle scanline overlay on main content container via repeating-linear-gradient pseudo-element with pointer-events: none
 - [ ] **FOUN-04**: prefers-reduced-motion support disables/reduces all animations and spinning elements
 - [ ] **FOUN-05**: All text with scanline overlay passes WCAG AA contrast (4.5:1 minimum)
@@ -17,8 +17,8 @@
 - [ ] **TYPO-02**: Counter/timer font loaded and applied (VCR OSD Mono)
 - [ ] **TYPO-03**: Data/property values font loaded and applied (Space Mono)
 - [ ] **TYPO-04**: System message font loaded and applied (VT323)
-- [ ] **TYPO-05**: All fonts self-hosted as WOFF2 with font-display: swap
-- [ ] **TYPO-06**: Critical fonts preloaded in app.html, accent fonts loaded asynchronously
+- [x] **TYPO-05**: All fonts self-hosted as WOFF2 with font-display: swap
+- [x] **TYPO-06**: Critical fonts preloaded in app.html, accent fonts loaded asynchronously
 
 ### Decorative
 - [ ] **DECO-01**: Subtle CRT bezel frame around main content area (rounded corners + bevel + gradient shadow)
@@ -34,7 +34,7 @@
 ### Integration
 - [ ] **INTG-01**: All existing game functionality preserved (Classic mode, Scales mode, search, results)
 - [ ] **INTG-02**: Responsive design maintained across mobile and desktop
-- [ ] **INTG-03**: Production build includes all custom theme classes (Tailwind safelist configured)
+- [x] **INTG-03**: Production build includes all custom theme classes (Tailwind safelist configured)
 
 ## v2 Requirements
 
@@ -62,8 +62,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUN-01 | Phase 1 | Pending |
-| FOUN-02 | Phase 1 | Pending |
+| FOUN-01 | Phase 1 | Complete (01-01) |
+| FOUN-02 | Phase 1 | Complete (01-01) |
 | FOUN-03 | Phase 1 | Pending |
 | FOUN-04 | Phase 1 | Pending |
 | FOUN-05 | Phase 1 | Pending |
@@ -71,8 +71,8 @@
 | TYPO-02 | Phase 2 | Pending |
 | TYPO-03 | Phase 2 | Pending |
 | TYPO-04 | Phase 2 | Pending |
-| TYPO-05 | Phase 1 | Pending |
-| TYPO-06 | Phase 1 | Pending |
+| TYPO-05 | Phase 1 | Complete (01-01) |
+| TYPO-06 | Phase 1 | Complete (01-01) |
 | DECO-01 | Phase 3 | Pending |
 | DECO-02 | Phase 3 | Pending |
 | DECO-03 | Phase 3 | Pending |
@@ -82,7 +82,7 @@
 | POLI-02 | Phase 3 | Pending |
 | INTG-01 | Phase 4 | Pending |
 | INTG-02 | Phase 4 | Pending |
-| INTG-03 | Phase 1 | Pending |
+| INTG-03 | Phase 1 | Complete (01-01) |
 
 **Coverage:**
 - v1 requirements: 21 total

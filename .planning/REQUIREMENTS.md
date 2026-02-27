@@ -62,33 +62,33 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUN-01 | TBD | Pending |
-| FOUN-02 | TBD | Pending |
-| FOUN-03 | TBD | Pending |
-| FOUN-04 | TBD | Pending |
-| FOUN-05 | TBD | Pending |
-| TYPO-01 | TBD | Pending |
-| TYPO-02 | TBD | Pending |
-| TYPO-03 | TBD | Pending |
-| TYPO-04 | TBD | Pending |
-| TYPO-05 | TBD | Pending |
-| TYPO-06 | TBD | Pending |
-| DECO-01 | TBD | Pending |
-| DECO-02 | TBD | Pending |
-| DECO-03 | TBD | Pending |
-| DECO-04 | TBD | Pending |
-| DECO-05 | TBD | Pending |
-| POLI-01 | TBD | Pending |
-| POLI-02 | TBD | Pending |
-| INTG-01 | TBD | Pending |
-| INTG-02 | TBD | Pending |
-| INTG-03 | TBD | Pending |
+| FOUN-01 | Phase 1 | Pending |
+| FOUN-02 | Phase 1 | Pending |
+| FOUN-03 | Phase 1 | Pending |
+| FOUN-04 | Phase 1 | Pending |
+| FOUN-05 | Phase 1 | Pending |
+| TYPO-01 | Phase 2 | Pending |
+| TYPO-02 | Phase 2 | Pending |
+| TYPO-03 | Phase 2 | Pending |
+| TYPO-04 | Phase 2 | Pending |
+| TYPO-05 | Phase 1 | Pending |
+| TYPO-06 | Phase 1 | Pending |
+| DECO-01 | Phase 3 | Pending |
+| DECO-02 | Phase 3 | Pending |
+| DECO-03 | Phase 3 | Pending |
+| DECO-04 | Phase 3 | Pending |
+| DECO-05 | Phase 3 | Pending |
+| POLI-01 | Phase 3 | Pending |
+| POLI-02 | Phase 3 | Pending |
+| INTG-01 | Phase 4 | Pending |
+| INTG-02 | Phase 4 | Pending |
+| INTG-03 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 (pending roadmap)
+- Mapped to phases: 21/21 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*

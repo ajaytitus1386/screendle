@@ -29,10 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Scanline overlay visible on main content areas without reducing text contrast below WCAG AA (4.5:1)
   4. All animations and spinning elements disappear when user has prefers-reduced-motion enabled
   5. Production build includes all custom theme classes (no Tailwind tree-shaking issues)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md -- CRT palette, warm dark theme, Audiowide font loading, Tailwind safelist
+- [ ] 01-02-PLAN.md -- Scanline overlay, reduced-motion accessibility, visual verification
 
 ### Phase 2: Typography System
 **Goal**: Load and apply retro font stack across all UI elements with optimized performance
@@ -87,7 +88,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Accessibility | 0/TBD | Not started | - |
+| 1. Foundation & Accessibility | 0/2 | Not started | - |
 | 2. Typography System | 0/TBD | Not started | - |
 | 3. Decorative Layer | 0/TBD | Not started | - |
 | 4. Integration Validation | 0/TBD | Not started | - |

@@ -30,7 +30,7 @@
 </svelte:head>
 
 <div class="dark min-h-screen bg-background text-foreground overflow-x-hidden">
-	<!-- Navbar -->
+	<!-- Navbar - outside scanline container, no scanlines here -->
 	<nav class="h-12 flex items-center justify-between px-4 border-b border-crt-amber/10">
 		<div class="w-10">
 			<!-- Left slot -->
@@ -49,7 +49,10 @@
 		</div>
 	</nav>
 
-	{@render children()}
+	<!-- Content area with CRT scanline overlay -->
+	<div class="crt-scanlines">
+		{@render children()}
+	</div>
 
 	<HowToPlay open={howToPlayOpen} onClose={() => howToPlayOpen = false} {defaultTab} />
 </div>

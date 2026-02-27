@@ -165,3 +165,57 @@
     scrollbar-color: oklch(0.69 0.14 56 / 20%) transparent;
   }
 }
+
+/* ========================================
+   CRT SCANLINE OVERLAY
+   Isolated layer — remove this entire block to disable scanlines.
+   See: FOUN-03, FOUN-05
+   ======================================== */
+
+.crt-scanlines {
+  position: relative;
+  min-height: calc(100vh - 3rem); /* Fill below navbar */
+}
+
+.crt-scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50; /* Above content, below modals */
+
+  /* Amber-tinted horizontal scanlines
+     - 4px spacing: visible as scanlines without moire
+     - 6% opacity: noticeable subconsciously, not distracting
+     - Warm amber tint matches CRT phosphor aesthetic */
+  background: repeating-linear-gradient(
+    0deg,
+    oklch(0.69 0.14 56 / 6%) 0px,
+    oklch(0.69 0.14 56 / 6%) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+/* ========================================
+   ACCESSIBILITY: REDUCED MOTION
+   Comprehensive support for prefers-reduced-motion.
+   See: FOUN-04
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Remove scanline overlay */
+  .crt-scanlines::before {
+    display: none;
+  }
+
+  /* Disable all animations and transitions globally */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

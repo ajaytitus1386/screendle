@@ -1,0 +1,24 @@
+# CRT color palette - prevent tree-shaking in production
+bg-crt-amber
+bg-crt-yellow
+bg-crt-cyan
+bg-crt-lime
+bg-crt-red
+text-crt-amber
+text-crt-yellow
+text-crt-cyan
+text-crt-lime
+text-crt-red
+border-crt-amber
+border-crt-yellow
+border-crt-cyan
+border-crt-lime
+border-crt-red
+
+# Dark theme utilities
+bg-dark-warm
+bg-dark-surface
+text-text-cream
+
+# Headline font
+font-headline

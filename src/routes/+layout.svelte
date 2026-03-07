@@ -32,11 +32,22 @@
 <div class="dark min-h-screen bg-background text-foreground overflow-x-hidden">
 	<!-- Navbar - outside scanline container, no scanlines here -->
 	<nav class="h-12 flex items-center justify-between px-4 border-b border-crt-amber/10">
-		<div class="w-10">
-			<!-- Left slot -->
-		</div>
-		<div>
-			<!-- Center slot -->
+		<a href="/" class="text-sm font-headline font-semibold tracking-wide hover:text-crt-amber transition-colors">
+			Screendle
+		</a>
+		<div class="flex gap-4">
+			<a
+				href="/classic"
+				class="text-sm transition-colors {$page.url.pathname === '/classic' ? 'text-crt-amber font-semibold' : 'text-muted-foreground hover:text-foreground'}"
+			>
+				Classic
+			</a>
+			<a
+				href="/scales"
+				class="text-sm transition-colors {$page.url.pathname === '/scales' ? 'text-crt-amber font-semibold' : 'text-muted-foreground hover:text-foreground'}"
+			>
+				Scales
+			</a>
 		</div>
 		<div class="w-10 flex justify-end">
 			<button

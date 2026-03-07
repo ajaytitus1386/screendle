@@ -27,6 +27,28 @@
 	let loading = $state(true);
 	let error = $state('');
 	let shareCopied = $state(false);
+	let suggestions: Movie[] = $state([]);
+	let suggestionsLoading = $state(false);
+
+	async function loadSuggestions() {
+		if (!targetMovie || suggestions.length > 0) return;
+		suggestionsLoading = true;
+		try {
+			const genres = targetMovie.genres.join(',');
+			const res = await fetch(`/api/suggestions?genres=${encodeURIComponent(genres)}&exclude=${targetMovie.id}`);
+			if (res.ok) {
+				const data = await res.json();
+				suggestions = data.suggestions;
+			}
+		} catch { /* ignore */ }
+		suggestionsLoading = false;
+	}
+
+	$effect(() => {
+		if (targetMovie && !loading) {
+			loadSuggestions();
+		}
+	});
 
 	onMount(async () => {
 		const today = getTodaysDateKey();
@@ -325,8 +347,8 @@
 <main class="container mx-auto max-w-5xl px-4 py-8">
 	<!-- Header -->
 	<header class="mb-8 text-center">
-		<h1 class="mb-2 text-4xl font-bold tracking-tight">Screendle</h1>
-		<p class="text-muted-foreground">Classic &mdash; Guess the movie</p>
+		<h1 class="mb-2 text-4xl font-headline font-bold tracking-tight">Screendle</h1>
+		<p class="text-text-cream/70">Classic &mdash; Guess the movie</p>
 	</header>
 
 	{#if loading}
@@ -334,10 +356,35 @@
 			<div class="text-muted-foreground">Loading today's puzzle...</div>
 		</div>
 	{:else if error}
-		<div class="mx-auto max-w-md rounded-lg bg-red-500/20 p-6 text-center">
-			<p class="text-red-400">{error}</p>
+		<div class="mx-auto max-w-md rounded-lg bg-crt-red/20 p-6 text-center">
+			<p class="text-crt-red">{error}</p>
 		</div>
 	{:else}
+		<!-- Starting Suggestions -->
+		{#if guesses.length === 0 && suggestions.length > 0 && !gameOver}
+			<div class="mx-auto mb-4 max-w-2xl">
+				<p class="text-xs text-muted-foreground mb-2 text-center">Try one of these to get started:</p>
+				<div class="flex flex-wrap justify-center gap-2">
+					{#each suggestions as movie}
+						<button
+							onclick={() => handleGuess(movie)}
+							class="flex items-center gap-2 rounded-lg bg-dark-surface/80 border border-crt-amber/10 px-3 py-1.5 text-xs hover:bg-dark-surface hover:border-crt-amber/30 transition-colors"
+						>
+							{#if movie.poster_path}
+								<img
+									src="https://image.tmdb.org/t/p/w92{movie.poster_path}"
+									alt=""
+									class="w-5 h-7 rounded object-cover"
+								/>
+							{/if}
+							<span class="truncate max-w-[120px]">{movie.title}</span>
+							<span class="text-muted-foreground">({movie.year})</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<!-- Search Input -->
 		<div class="mx-auto mb-8 max-w-md">
 			<SearchInput onSelect={handleGuess} disabled={gameOver} guessedIds={guesses.map(g => g.movie.id)} />
@@ -349,7 +396,7 @@
 			<div class="mb-2 flex gap-2">
 				{#each columns as col}
 					<div
-						class="{col.width} flex-shrink-0 rounded-lg bg-black/40 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur-sm"
+						class="{col.width} flex-shrink-0 rounded-lg bg-dark-surface/80 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur-sm"
 					>
 						{col.label}
 					</div>
@@ -375,16 +422,16 @@
 		{#if gameOver && targetMovie}
 			<div class="mt-8 text-center">
 				{#if won}
-					<div class="rounded-lg bg-green-500/20 p-6 backdrop-blur-sm">
-						<h2 class="text-2xl font-bold text-green-400">Congratulations!</h2>
+					<div class="rounded-lg bg-crt-lime/20 p-6 backdrop-blur-sm">
+						<h2 class="text-2xl font-bold text-crt-lime">Congratulations!</h2>
 						<p class="mt-2 text-muted-foreground">
 							You guessed <span class="font-semibold text-foreground">{targetMovie.title}</span> in {guesses.length}
 							{guesses.length === 1 ? 'try' : 'tries'}!
 						</p>
 					</div>
 				{:else}
-					<div class="rounded-lg bg-red-500/20 p-6 backdrop-blur-sm">
-						<h2 class="text-2xl font-bold text-red-400">Game Over</h2>
+					<div class="rounded-lg bg-crt-red/20 p-6 backdrop-blur-sm">
+						<h2 class="text-2xl font-bold text-crt-red">Game Over</h2>
 						<p class="mt-2 text-muted-foreground">
 							The movie was <span class="font-semibold text-foreground">{targetMovie.title}</span>
 						</p>
@@ -392,7 +439,7 @@
 				{/if}
 				<button
 					onclick={share}
-					class="mt-4 mr-2 rounded-lg bg-white/10 px-6 py-2 font-semibold hover:bg-white/20 transition-colors"
+					class="mt-4 mr-2 rounded-lg bg-dark-surface/80 border border-crt-amber/10 px-6 py-2 font-semibold hover:bg-dark-surface hover:border-crt-amber/30 transition-colors"
 				>
 					{shareCopied ? 'Copied!' : 'Share'}
 				</button>
@@ -407,8 +454,8 @@
 
 		<!-- Clue Accumulator -->
 		{#if guesses.length > 0 && hasClues(clues) && !gameOver}
-			<div class="mt-6 rounded-lg bg-blue-500/10 border border-blue-500/30 p-4 backdrop-blur-sm">
-				<h3 class="text-sm font-semibold text-blue-400 mb-2">Accumulated Clues</h3>
+			<div class="mt-6 rounded-lg bg-crt-cyan/10 border border-crt-cyan/30 p-4 backdrop-blur-sm">
+				<h3 class="text-sm font-semibold text-crt-cyan mb-2">Accumulated Clues</h3>
 				<div class="flex flex-wrap gap-3 text-xs">
 					{#if clues.yearMin !== null || clues.yearMax !== null}
 						<div class="bg-black/30 rounded px-2 py-1">
@@ -449,25 +496,25 @@
 					{#if clues.possibleGenres.length > 0}
 						<div class="bg-black/30 rounded px-2 py-1">
 							<span class="text-muted-foreground">Genres:</span>
-							<span class="text-orange-400 ml-1">{clues.possibleGenres.join(', ')}</span>
+							<span class="text-crt-amber ml-1">{clues.possibleGenres.join(', ')}</span>
 						</div>
 					{/if}
 					{#if clues.possibleKeywords.length > 0}
 						<div class="bg-black/30 rounded px-2 py-1">
 							<span class="text-muted-foreground">Keywords:</span>
-							<span class="text-orange-400 ml-1">{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
+							<span class="text-crt-amber ml-1">{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
 						</div>
 					{/if}
 					{#if clues.knownDirector}
 						<div class="bg-black/30 rounded px-2 py-1">
 							<span class="text-muted-foreground">Director:</span>
-							<span class="text-green-400 ml-1">{clues.knownDirector}</span>
+							<span class="text-crt-lime ml-1">{clues.knownDirector}</span>
 						</div>
 					{/if}
 					{#if clues.knownCountry}
 						<div class="bg-black/30 rounded px-2 py-1">
 							<span class="text-muted-foreground">Country:</span>
-							<span class="text-green-400 ml-1">{clues.knownCountry}</span>
+							<span class="text-crt-lime ml-1">{clues.knownCountry}</span>
 						</div>
 					{/if}
 				</div>

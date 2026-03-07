@@ -18,11 +18,11 @@
 	function getMatchClass(match: MatchType): string {
 		switch (match) {
 			case 'exact':
-				return 'bg-green-600/70';
+				return 'bg-crt-lime/70';
 			case 'partial':
-				return 'bg-orange-500/70';
+				return 'bg-crt-amber/70';
 			case 'none':
-				return 'bg-red-600/50';
+				return 'bg-crt-red/50';
 		}
 	}
 
@@ -44,7 +44,7 @@
 	style="animation-delay: {delay}s; animation-fill-mode: backwards;"
 >
 	<!-- Poster -->
-	<div class="w-16 flex-shrink-0 overflow-hidden rounded-lg bg-black/60 backdrop-blur-sm">
+	<div class="w-16 h-24 flex-shrink-0 self-start overflow-hidden rounded-lg bg-black/60 backdrop-blur-sm">
 		{#if result.movie.poster_path}
 			<img
 				src="{TMDB_IMAGE_BASE}{result.movie.poster_path}"

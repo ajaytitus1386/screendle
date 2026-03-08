@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import HowToPlay from '$lib/components/HowToPlay.svelte';
+	import { House } from '@lucide/svelte';
 
 	let { children } = $props();
 
@@ -33,22 +34,8 @@
 	<!-- Navbar - outside scanline container, no scanlines here -->
 	<nav class="h-12 flex items-center justify-between px-4 border-b border-crt-amber/10">
 		<a href="/" class="text-sm font-headline font-semibold tracking-wide hover:text-crt-amber transition-colors">
-			Screendle
+			<House class="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-crt-amber/10 transition-colors p-1 rounded-full"/>
 		</a>
-		<div class="flex gap-4">
-			<a
-				href="/classic"
-				class="text-sm transition-colors {$page.url.pathname === '/classic' ? 'text-crt-amber font-semibold' : 'text-muted-foreground hover:text-foreground'}"
-			>
-				Classic
-			</a>
-			<a
-				href="/scales"
-				class="text-sm transition-colors {$page.url.pathname === '/scales' ? 'text-crt-amber font-semibold' : 'text-muted-foreground hover:text-foreground'}"
-			>
-				Scales
-			</a>
-		</div>
 		<div class="w-10 flex justify-end">
 			<button
 				onclick={() => howToPlayOpen = true}

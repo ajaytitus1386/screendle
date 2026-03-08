@@ -11,6 +11,8 @@ export interface Movie {
 	imdb_rating: number;
 	keywords: string[];
 	country: string;
+	plot_short: string | null;
+	plot_full: string | null;
 }
 
 export type MatchType = 'exact' | 'partial' | 'none';

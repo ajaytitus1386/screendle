@@ -3,18 +3,22 @@
 	import type { GuessResult, Movie, GameSave } from '$lib/types';
 	import { getTodaysDateKey } from '$lib/daily';
 	import GameRow from '$lib/components/GameRow.svelte';
+	import CollapsedRow from '$lib/components/CollapsedRow.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import MovieCard from '$lib/components/MovieCard.svelte';
+	import { Film, Calendar, Clock, Star, Clapperboard, Tag, Globe, ChevronDown, ChevronUp } from '@lucide/svelte';
 
 	// Column headers for the property grid
 	const columns = [
-		{ key: 'poster', label: '', width: 'w-16' },
-		{ key: 'genre', label: 'Genre', width: 'w-28' },
-		{ key: 'year', label: 'Year', width: 'w-20' },
-		{ key: 'runtime', label: 'Runtime', width: 'w-20' },
-		{ key: 'imdb_rating', label: 'IMDb', width: 'w-20' },
-		{ key: 'director', label: 'Director', width: 'w-32' },
-		{ key: 'keywords', label: 'Keywords', width: 'w-32' },
-		{ key: 'country', label: 'Country', width: 'w-24' }
+		{ key: 'number', label: '#', width: 'w-8', icon: null },
+		{ key: 'poster', label: '', width: 'w-14', icon: null },
+		{ key: 'genre', label: 'Genre', width: 'w-28', icon: Film },
+		{ key: 'year', label: 'Year', width: 'w-20', icon: Calendar },
+		{ key: 'runtime', label: 'Runtime', width: 'w-20', icon: Clock },
+		{ key: 'imdb_rating', label: 'IMDb', width: 'w-20', icon: Star },
+		{ key: 'director', label: 'Director', width: 'w-32', icon: Clapperboard },
+		{ key: 'keywords', label: 'Keywords', width: 'w-32', icon: Tag },
+		{ key: 'country', label: 'Country', width: 'w-24', icon: Globe }
 	];
 
 	const STORAGE_KEY = 'screendle-game';
@@ -29,6 +33,15 @@
 	let shareCopied = $state(false);
 	let suggestions: Movie[] = $state([]);
 	let suggestionsLoading = $state(false);
+	let tableExpanded = $state(false);
+
+	// Filter out guessed movies from suggestions
+	let filteredSuggestions = $derived(
+		suggestions.filter(m => !guesses.some(g => g.movie.id === m.id))
+	);
+
+	// Suggestion names for animated placeholder
+	let suggestionNames = $derived(filteredSuggestions.map(m => m.title));
 
 	async function loadSuggestions() {
 		if (!targetMovie || suggestions.length > 0) return;
@@ -139,6 +152,8 @@
 			return;
 		}
 
+		const wasSuggestion = suggestions.some(m => m.id === movie.id);
+
 		// Compare the guessed movie with target
 		const result = compareMovies(movie, targetMovie);
 		guesses = [...guesses, result];
@@ -154,6 +169,11 @@
 
 		// Save to localStorage
 		saveGame();
+
+		// Fetch a replacement suggestion if one was used
+		if (wasSuggestion && !gameOver) {
+			fetchReplacementSuggestion();
+		}
 	}
 
 	function compareMovies(guess: Movie, target: Movie): GuessResult {
@@ -261,11 +281,9 @@
 
 			// Year constraints
 			if (matches.year.direction === 'up') {
-				// Target is higher than guess
 				const val = matches.year.value as number;
 				result.yearMin = result.yearMin ? Math.max(result.yearMin, val + 1) : val + 1;
 			} else if (matches.year.direction === 'down') {
-				// Target is lower than guess
 				const val = matches.year.value as number;
 				result.yearMax = result.yearMax ? Math.min(result.yearMax, val - 1) : val - 1;
 			} else if (matches.year.match === 'exact') {
@@ -342,6 +360,79 @@
 			c.possibleGenres.length > 0 || c.possibleKeywords.length > 0 ||
 			c.knownDirector !== null || c.knownCountry !== null;
 	}
+
+	function formatRuntime(mins: number): string {
+		if (mins < 60) return `${mins}m`;
+		const h = Math.floor(mins / 60);
+		const m = mins % 60;
+		return m === 0 ? `${mins}m (${h}hr)` : `${mins}m (${h}hr ${m}min)`;
+	}
+
+	function formatYearClue(min: number | null, max: number | null): { label: string; value: string } {
+		if (min !== null && max !== null && min === max) return { label: 'Released in', value: `${min}` };
+		if (min !== null && max !== null) {
+			const lo = Math.min(min, max);
+			const hi = Math.max(min, max);
+			return { label: 'Released between', value: `${lo} and ${hi}` };
+		}
+		if (min !== null) return { label: 'Released after', value: `${min - 1}` };
+		if (max !== null) return { label: 'Released before', value: `${max + 1}` };
+		return { label: '', value: '' };
+	}
+
+	function formatRuntimeClue(min: number | null, max: number | null): { label: string; value: string } {
+		if (min !== null && max !== null && min === max) return { label: 'Is', value: `${formatRuntime(min)} long` };
+		if (min !== null && max !== null) {
+			const lo = Math.min(min, max);
+			const hi = Math.max(min, max);
+			return { label: 'Between', value: `${formatRuntime(lo)} and ${formatRuntime(hi)}` };
+		}
+		if (min !== null) return { label: 'Longer than', value: formatRuntime(min - 1) };
+		if (max !== null) return { label: 'Shorter than', value: formatRuntime(max + 1) };
+		return { label: '', value: '' };
+	}
+
+	function formatRatingClue(min: number | null, max: number | null): { label: string; value: string } {
+		if (min !== null && max !== null && min === max) return { label: 'Rated', value: `${min.toFixed(1)} on IMDb` };
+		if (min !== null && max !== null) return { label: 'Rated between', value: `${min.toFixed(1)} and ${max.toFixed(1)}` };
+		if (min !== null) return { label: 'Rated above', value: min.toFixed(1) };
+		if (max !== null) return { label: 'Rated below', value: max.toFixed(1) };
+		return { label: '', value: '' };
+	}
+
+	// Fetch a replacement suggestion matching accumulated clues
+	async function fetchReplacementSuggestion() {
+		if (!targetMovie || gameOver) return;
+
+		const excludeIds = [
+			targetMovie.id,
+			...guesses.map(g => g.movie.id),
+			...suggestions.map(m => m.id)
+		].join(',');
+
+		const params = new URLSearchParams({ limit: '1', excludeIds });
+
+		// Add clue-based filters
+		if (clues.possibleGenres.length > 0) {
+			params.set('genres', clues.possibleGenres.join(','));
+		}
+		if (clues.yearMin !== null) params.set('yearMin', String(clues.yearMin));
+		if (clues.yearMax !== null) params.set('yearMax', String(clues.yearMax));
+		if (clues.runtimeMin !== null) params.set('runtimeMin', String(clues.runtimeMin));
+		if (clues.runtimeMax !== null) params.set('runtimeMax', String(clues.runtimeMax));
+		if (clues.imdbMin !== null) params.set('ratingMin', String(clues.imdbMin));
+		if (clues.imdbMax !== null) params.set('ratingMax', String(clues.imdbMax));
+
+		try {
+			const res = await fetch(`/api/suggestions?${params}`);
+			if (res.ok) {
+				const data = await res.json();
+				if (data.suggestions.length > 0) {
+					suggestions = [...suggestions, ...data.suggestions];
+				}
+			}
+		} catch { /* ignore */ }
+	}
 </script>
 
 <main class="container mx-auto max-w-5xl px-4 py-8">
@@ -360,170 +451,191 @@
 			<p class="text-crt-red">{error}</p>
 		</div>
 	{:else}
-		<!-- Starting Suggestions -->
-		{#if guesses.length === 0 && suggestions.length > 0 && !gameOver}
-			<div class="mx-auto mb-4 max-w-2xl">
-				<p class="text-xs text-muted-foreground mb-2 text-center">Try one of these to get started:</p>
-				<div class="flex flex-wrap justify-center gap-2">
-					{#each suggestions as movie}
-						<button
+
+		<!-- Search Input -->
+		<div class="mx-auto mb-6 max-w-md">
+			<SearchInput
+				onSelect={handleGuess}
+				disabled={gameOver}
+				guessedIds={guesses.map(g => g.movie.id)}
+				placeholderNames={suggestionNames}
+				guessCount={guesses.length > 0 ? `${guesses.length} / 10 guesses` : ''}
+			/>
+		</div>
+
+		<!-- Suggestions Row — always visible while playing -->
+		{#if filteredSuggestions.length > 0 && !gameOver}
+			<div class="mx-auto mb-4 max-w-3xl">
+				<p class="text-xs text-muted-foreground mb-2 text-center">
+					{guesses.length === 0 ? 'Try one of these to get started:' : 'Quick picks:'}
+				</p>
+				<div class="flex justify-center gap-2 overflow-x-auto pb-1">
+					{#each filteredSuggestions as movie}
+						<MovieCard
+							{movie}
 							onclick={() => handleGuess(movie)}
-							class="flex items-center gap-2 rounded-lg bg-dark-surface/80 border border-crt-amber/10 px-3 py-1.5 text-xs hover:bg-dark-surface hover:border-crt-amber/30 transition-colors"
-						>
-							{#if movie.poster_path}
-								<img
-									src="https://image.tmdb.org/t/p/w92{movie.poster_path}"
-									alt=""
-									class="w-5 h-7 rounded object-cover"
-								/>
-							{/if}
-							<span class="truncate max-w-[120px]">{movie.title}</span>
-							<span class="text-muted-foreground">({movie.year})</span>
-						</button>
+							disabled={gameOver}
+							flippable={false}
+							class="w-28 flex-shrink-0"
+						/>
 					{/each}
 				</div>
 			</div>
 		{/if}
 
-		<!-- Search Input -->
-		<div class="mx-auto mb-8 max-w-md">
-			<SearchInput onSelect={handleGuess} disabled={gameOver} guessedIds={guesses.map(g => g.movie.id)} />
-		</div>
-
-		<!-- Game Board -->
-		<div class="overflow-x-auto">
-			<!-- Column Headers -->
-			<div class="mb-2 flex gap-2">
-				{#each columns as col}
-					<div
-						class="{col.width} flex-shrink-0 rounded-lg bg-dark-surface/80 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur-sm"
-					>
-						{col.label}
-					</div>
-				{/each}
-			</div>
-
-			<!-- Guess Rows -->
-			<div class="flex flex-col gap-2">
-				{#each guesses as guess, index}
-					<GameRow result={guess} delay={index * 0.1} />
-				{/each}
-			</div>
-
-			<!-- Empty state -->
-			{#if guesses.length === 0}
-				<div class="mt-8 text-center text-muted-foreground">
-					<p>Start typing a movie title to make your first guess!</p>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Win/Lose Message -->
+		<!-- Clues / Game Over — mutually exclusive, same slot -->
 		{#if gameOver && targetMovie}
-			<div class="mt-8 text-center">
-				{#if won}
-					<div class="rounded-lg bg-crt-lime/20 p-6 backdrop-blur-sm">
-						<h2 class="text-2xl font-bold text-crt-lime">Congratulations!</h2>
-						<p class="mt-2 text-muted-foreground">
-							You guessed <span class="font-semibold text-foreground">{targetMovie.title}</span> in {guesses.length}
-							{guesses.length === 1 ? 'try' : 'tries'}!
-						</p>
-					</div>
-				{:else}
-					<div class="rounded-lg bg-crt-red/20 p-6 backdrop-blur-sm">
-						<h2 class="text-2xl font-bold text-crt-red">Game Over</h2>
-						<p class="mt-2 text-muted-foreground">
-							The movie was <span class="font-semibold text-foreground">{targetMovie.title}</span>
-						</p>
-					</div>
-				{/if}
-				<button
-					onclick={share}
-					class="mt-4 mr-2 rounded-lg bg-dark-surface/80 border border-crt-amber/10 px-6 py-2 font-semibold hover:bg-dark-surface hover:border-crt-amber/30 transition-colors"
-				>
-					{shareCopied ? 'Copied!' : 'Share'}
-				</button>
-				<button
-					onclick={() => fetch('/api/daily?random=true').then(r => r.json()).then(data => { targetMovie = data.movie; guesses = []; gameOver = false; won = false; })}
-					class="mt-4 rounded-lg bg-primary px-6 py-2 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
-				>
-					New Game
-				</button>
+			<div class="mx-auto mb-6 max-w-3xl rounded-lg {won ? 'bg-green-600/10 border-green-600/30' : 'bg-red-600/10 border-red-600/30'} border p-4 backdrop-blur-sm">
+				<h3 class="text-sm font-semibold {won ? 'text-green-400' : 'text-red-400'} mb-1">
+					{won ? 'Congratulations!' : 'Game Over'}
+				</h3>
+				<p class="text-xs text-muted-foreground mb-3">
+					{#if won}
+						You guessed <span class="font-semibold text-foreground">{targetMovie.title}</span> in {guesses.length}
+						{guesses.length === 1 ? 'try' : 'tries'}!
+					{:else}
+						The movie was <span class="font-semibold text-foreground">{targetMovie.title}</span>
+					{/if}
+				</p>
+				<div class="flex flex-wrap gap-2">
+					<button
+						onclick={share}
+						class="rounded bg-black/30 px-3 py-1.5 text-xs font-semibold hover:bg-black/50 transition-colors"
+					>
+						{shareCopied ? 'Copied!' : 'Share'}
+					</button>
+					<button
+						onclick={() => fetch('/api/daily?random=true').then(r => r.json()).then(data => { targetMovie = data.movie; guesses = []; gameOver = false; won = false; })}
+						class="rounded bg-black/30 px-3 py-1.5 text-xs font-semibold hover:bg-black/50 transition-colors"
+					>
+						New Game
+					</button>
+				</div>
 			</div>
-		{/if}
-
-		<!-- Clue Accumulator -->
-		{#if guesses.length > 0 && hasClues(clues) && !gameOver}
-			<div class="mt-6 rounded-lg bg-crt-cyan/10 border border-crt-cyan/30 p-4 backdrop-blur-sm">
-				<h3 class="text-sm font-semibold text-crt-cyan mb-2">Accumulated Clues</h3>
+		{:else if guesses.length > 0 && hasClues(clues)}
+			<div class="mx-auto mb-6 max-w-3xl rounded-lg bg-crt-cyan/10 border border-crt-cyan/30 p-4 backdrop-blur-sm">
+				<h3 class="text-sm font-semibold text-crt-cyan mb-1">Accumulated Clues</h3>
+				<p class="text-xs text-crt-cyan/60 mb-3">You are looking for a movie that:</p>
 				<div class="flex flex-wrap gap-3 text-xs">
 					{#if clues.yearMin !== null || clues.yearMax !== null}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Year:</span>
-							<span class="text-foreground ml-1">
-								{#if clues.yearMin === clues.yearMax}
-									{clues.yearMin}
-								{:else}
-									{clues.yearMin ?? '?'} - {clues.yearMax ?? '?'}
-								{/if}
-							</span>
+						{@const yearExact = clues.yearMin !== null && clues.yearMax !== null && clues.yearMin === clues.yearMax}
+						{@const yearClue = formatYearClue(clues.yearMin, clues.yearMax)}
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Calendar class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">{yearClue.label} </span><span class={yearExact ? 'text-green-400' : 'text-orange-400'}>{yearClue.value}</span>
 						</div>
 					{/if}
 					{#if clues.runtimeMin !== null || clues.runtimeMax !== null}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Runtime:</span>
-							<span class="text-foreground ml-1">
-								{#if clues.runtimeMin === clues.runtimeMax}
-									{clues.runtimeMin}m
-								{:else}
-									{clues.runtimeMin ?? '?'} - {clues.runtimeMax ?? '?'}m
-								{/if}
-							</span>
+						{@const runtimeExact = clues.runtimeMin !== null && clues.runtimeMax !== null && clues.runtimeMin === clues.runtimeMax}
+						{@const runtimeClue = formatRuntimeClue(clues.runtimeMin, clues.runtimeMax)}
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Clock class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">{runtimeClue.label} </span><span class={runtimeExact ? 'text-green-400' : 'text-orange-400'}>{runtimeClue.value}</span>
 						</div>
 					{/if}
 					{#if clues.imdbMin !== null || clues.imdbMax !== null}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">IMDb:</span>
-							<span class="text-foreground ml-1">
-								{#if clues.imdbMin === clues.imdbMax}
-									{clues.imdbMin}
-								{:else}
-									{clues.imdbMin ?? '?'} - {clues.imdbMax ?? '?'}
-								{/if}
-							</span>
+						{@const imdbExact = clues.imdbMin !== null && clues.imdbMax !== null && clues.imdbMin === clues.imdbMax}
+						{@const imdbClue = formatRatingClue(clues.imdbMin, clues.imdbMax)}
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Star class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">{imdbClue.label} </span><span class={imdbExact ? 'text-green-400' : 'text-orange-400'}>{imdbClue.value}</span>
 						</div>
 					{/if}
 					{#if clues.possibleGenres.length > 0}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Genres:</span>
-							<span class="text-crt-amber ml-1">{clues.possibleGenres.join(', ')}</span>
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Film class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">Includes </span><span class="text-orange-400">{clues.possibleGenres.join(', ')}</span>
 						</div>
 					{/if}
 					{#if clues.possibleKeywords.length > 0}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Keywords:</span>
-							<span class="text-crt-amber ml-1">{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Tag class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">Tagged with </span><span class="text-orange-400">{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
 						</div>
 					{/if}
 					{#if clues.knownDirector}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Director:</span>
-							<span class="text-crt-lime ml-1">{clues.knownDirector}</span>
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Clapperboard class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">Directed by </span><span class="text-green-400">{clues.knownDirector}</span>
 						</div>
 					{/if}
 					{#if clues.knownCountry}
-						<div class="bg-black/30 rounded px-2 py-1">
-							<span class="text-muted-foreground">Country:</span>
-							<span class="text-crt-lime ml-1">{clues.knownCountry}</span>
+						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
+							<Globe class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+							<span class="text-foreground">Made in </span><span class="text-green-400">{clues.knownCountry}</span>
 						</div>
 					{/if}
 				</div>
 			</div>
 		{/if}
 
-		<!-- Guess Counter -->
-		<div class="mt-6 text-center text-sm text-muted-foreground">
-			{guesses.length} / 10 guesses
-		</div>
+		<!-- Game Board — hidden until first guess -->
+		{#if guesses.length > 0}
+			<div class="flex justify-center">
+				<div class="overflow-x-auto inline-flex flex-col">
+					<!-- Column Headers -->
+					<div class="mb-2 flex gap-2">
+						{#each columns as col}
+							<div
+								class="group {col.width} flex-shrink-0 rounded-lg bg-dark-surface/80 px-2 py-2
+											 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground
+											 backdrop-blur-sm flex items-center justify-center"
+							>
+								{#if col.icon}
+									{@const Icon = col.icon}
+									<Icon class="w-4 h-4 block group-hover:hidden" />
+									<span class="hidden group-hover:block">{col.label}</span>
+								{:else}
+									{col.label}
+								{/if}
+							</div>
+						{/each}
+					</div>
+
+					<!-- Guess Rows (newest first) -->
+					<div class="flex flex-col gap-2">
+						{#if gameOver && !won && targetMovie}
+							<GameRow
+								result={compareMovies(targetMovie, targetMovie)}
+								guessNumber="A"
+								delay={0}
+							/>
+						{/if}
+						{#each [...guesses].reverse() as guess, i}
+							{@const guessNum = guesses.length - i}
+							{#if i === 0}
+								<!-- Latest guess: always expanded -->
+								<GameRow result={guess} guessNumber={guessNum} delay={0} />
+							{:else if tableExpanded}
+								<!-- Expanded mode: show full rows -->
+								<GameRow result={guess} guessNumber={guessNum} delay={0} />
+							{:else}
+								<!-- Collapsed mode: compact row -->
+								<CollapsedRow result={guess} guessNumber={guessNum} onExpand={() => tableExpanded = true} />
+							{/if}
+						{/each}
+					</div>
+
+					<!-- Expand/Collapse toggle -->
+					{#if guesses.length > 1}
+						<button
+							onclick={() => tableExpanded = !tableExpanded}
+							class="mt-2 flex items-center justify-center gap-1 rounded-lg bg-dark-surface/40 px-3 py-1.5
+										 text-xs text-muted-foreground hover:bg-dark-surface/60 hover:text-foreground
+										 transition-colors cursor-pointer self-center"
+						>
+							{#if tableExpanded}
+								<ChevronUp class="w-3 h-3" />
+								Collapse
+							{:else}
+								<ChevronDown class="w-3 h-3" />
+								Expand all ({guesses.length - 1})
+							{/if}
+						</button>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 	{/if}
 </main>

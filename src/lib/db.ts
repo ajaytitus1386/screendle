@@ -16,7 +16,9 @@ export function rowToMovie(row: any): Movie {
 		director: row.director,
 		imdb_rating: row.imdb_rating,
 		keywords: JSON.parse(row.keywords || '[]'),
-		country: row.country
+		country: row.country,
+		plot_short: row.plot_short || null,
+		plot_full: row.plot_full || null
 	};
 }
 
@@ -38,6 +40,8 @@ export function rowToMovieFromAlias(row: any, prefix: string): Movie {
 		director: row[`${prefix}_director`],
 		imdb_rating: row[`${prefix}_imdb_rating`],
 		keywords: JSON.parse(row[`${prefix}_keywords`] || '[]'),
-		country: row[`${prefix}_country`]
+		country: row[`${prefix}_country`],
+		plot_short: row[`${prefix}_plot_short`] || null,
+		plot_full: row[`${prefix}_plot_full`] || null
 	};
 }

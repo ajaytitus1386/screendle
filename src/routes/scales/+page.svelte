@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import type { Movie, ScalesRound, ScalesGameSave } from '$lib/types';
 	import { getTodaysDateKey } from '$lib/daily';
+	import MovieCard from '$lib/components/MovieCard.svelte';
 
 	const STORAGE_KEY = 'screendle-scales';
 	const TOTAL_ROUNDS = 10;
@@ -148,14 +149,14 @@
 
 	let currentRoundData = $derived(rounds.length > 0 ? rounds[currentRound] : null);
 
-	let flippedA = $state(false);
-	let flippedB = $state(false);
+	let cardA: MovieCard | undefined = $state();
+	let cardB: MovieCard | undefined = $state();
 
 	// Reset flips when round changes
 	$effect(() => {
 		currentRound;
-		flippedA = false;
-		flippedB = false;
+		cardA?.resetFlip();
+		cardB?.resetFlip();
 	});
 
 	let shareCopied = $state(false);
@@ -211,30 +212,6 @@
 		animation: progress-fill 2s linear forwards;
 	}
 
-	.card-flip {
-		perspective: 800px;
-	}
-
-	.card-flip-inner {
-		position: relative;
-		transition: transform 0.5s ease;
-		transform-style: preserve-3d;
-	}
-
-	.card-flip-inner.flipped {
-		transform: rotateY(180deg);
-	}
-
-	.card-face {
-		backface-visibility: hidden;
-	}
-
-	.card-back {
-		backface-visibility: hidden;
-		transform: rotateY(180deg);
-		position: absolute;
-		inset: 0;
-	}
 </style>
 
 <main class="container mx-auto max-w-2xl px-4 py-8">
@@ -258,7 +235,7 @@
 			<div class="rounded-xl bg-dark-surface/80 backdrop-blur-sm border border-crt-amber/10 p-8 mb-6">
 				<p class="text-sm text-muted-foreground mb-2">Final Score</p>
 				<p class="text-6xl font-bold mb-2">
-					<span class={score >= 7 ? 'text-crt-lime' : score >= 4 ? 'text-crt-amber' : 'text-crt-red'}>
+					<span class={score >= 7 ? 'text-green-400' : score >= 4 ? 'text-orange-400' : 'text-red-400'}>
 						{score}
 					</span>
 					<span class="text-2xl text-muted-foreground">/ {rounds.length}</span>
@@ -283,7 +260,7 @@
 				{#each rounds as round, i}
 					<div
 						class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold
-							{round.userAnswer === round.correctAnswer ? 'bg-crt-lime/30 text-crt-lime border border-crt-lime/50' : 'bg-crt-red/30 text-crt-red border border-crt-red/50'}"
+							{round.userAnswer === round.correctAnswer ? 'bg-green-600/30 text-green-400 border border-green-600/50' : 'bg-red-600/30 text-red-400 border border-red-600/50'}"
 					>
 						{i + 1}
 					</div>
@@ -301,13 +278,13 @@
 			<div class="mb-8 space-y-4">
 				{#each rounds as round, i}
 					{@const correct = round.userAnswer === round.correctAnswer}
-					<div class="rounded-xl bg-black/30 border {correct ? 'border-crt-lime/20' : 'border-crt-red/20'} p-3">
+					<div class="rounded-xl bg-black/30 border {correct ? 'border-green-600/20' : 'border-red-600/20'} p-3">
 						<!-- Round label -->
 						<div class="flex items-center justify-center gap-2 mb-3">
-							<div class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold {correct ? 'bg-crt-lime/30 text-crt-lime' : 'bg-crt-red/30 text-crt-red'}">
+							<div class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold {correct ? 'bg-green-600/30 text-green-400' : 'bg-red-600/30 text-red-400'}">
 								{i + 1}
 							</div>
-							<span class="text-xs font-semibold {correct ? 'text-crt-lime' : 'text-crt-red'}">
+							<span class="text-xs font-semibold {correct ? 'text-green-400' : 'text-red-400'}">
 								{correct ? 'Correct' : 'Wrong'}
 							</span>
 						</div>
@@ -315,7 +292,7 @@
 						<!-- Side-by-side posters -->
 						<div class="grid grid-cols-2 gap-3">
 							<!-- Movie A -->
-							<div class="text-center {round.correctAnswer === 'A' ? 'ring-1 ring-crt-lime/40 rounded-lg p-2' : 'p-2'}">
+							<div class="text-center {round.correctAnswer === 'A' ? 'ring-1 ring-green-500/40 rounded-lg p-2' : 'p-2'}">
 								{#if round.movieA.poster_path}
 									<img
 										src={posterUrl(round.movieA.poster_path)}
@@ -326,14 +303,14 @@
 									<div class="mx-auto mb-2 w-20 h-30 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground text-xs sm:w-24 sm:h-36">?</div>
 								{/if}
 								<p class="text-xs font-semibold truncate">{round.movieA.title}</p>
-								<p class="text-xs {round.correctAnswer === 'A' ? 'text-crt-lime font-bold' : 'text-muted-foreground'}">{round.movieA.imdb_rating.toFixed(1)}</p>
+								<p class="text-xs {round.correctAnswer === 'A' ? 'text-green-400 font-bold' : 'text-muted-foreground'}">{round.movieA.imdb_rating.toFixed(1)}</p>
 								{#if round.movieA.imdb_id}
 									<a href={imdbUrl(round.movieA.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-[10px] text-crt-cyan hover:text-crt-cyan/80">IMDb</a>
 								{/if}
 							</div>
 
 							<!-- Movie B -->
-							<div class="text-center {round.correctAnswer === 'B' ? 'ring-1 ring-crt-lime/40 rounded-lg p-2' : 'p-2'}">
+							<div class="text-center {round.correctAnswer === 'B' ? 'ring-1 ring-green-500/40 rounded-lg p-2' : 'p-2'}">
 								{#if round.movieB.poster_path}
 									<img
 										src={posterUrl(round.movieB.poster_path)}
@@ -344,7 +321,7 @@
 									<div class="mx-auto mb-2 w-20 h-30 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground text-xs sm:w-24 sm:h-36">?</div>
 								{/if}
 								<p class="text-xs font-semibold truncate">{round.movieB.title}</p>
-								<p class="text-xs {round.correctAnswer === 'B' ? 'text-crt-lime font-bold' : 'text-muted-foreground'}">{round.movieB.imdb_rating.toFixed(1)}</p>
+								<p class="text-xs {round.correctAnswer === 'B' ? 'text-green-400 font-bold' : 'text-muted-foreground'}">{round.movieB.imdb_rating.toFixed(1)}</p>
 								{#if round.movieB.imdb_id}
 									<a href={imdbUrl(round.movieB.imdb_id)} target="_blank" rel="noopener noreferrer" class="text-[10px] text-crt-cyan hover:text-crt-cyan/80">IMDb</a>
 								{/if}
@@ -369,10 +346,10 @@
 					class="h-2 flex-1 rounded-full transition-colors
 						{i < currentRound
 							? round.userAnswer === round.correctAnswer
-								? 'bg-crt-lime'
-								: 'bg-crt-red'
+								? 'bg-green-500'
+								: 'bg-red-500'
 							: i === currentRound
-								? 'bg-crt-amber'
+								? 'bg-orange-500'
 								: 'bg-white/10'}"
 				></div>
 			{/each}
@@ -387,133 +364,28 @@
 		<!-- Movie Cards with centered feedback overlay -->
 		<div class="relative">
 			<div class="grid grid-cols-2 gap-4">
-				{#each [
-					{ movie: currentRoundData.movieA, side: 'A' as const, flipped: flippedA, toggleFlip: () => flippedA = !flippedA },
-					{ movie: currentRoundData.movieB, side: 'B' as const, flipped: flippedB, toggleFlip: () => flippedB = !flippedB }
-				] as { movie, side, flipped, toggleFlip }}
-					<div class="card-flip">
-						<div class="card-flip-inner {flipped ? 'flipped' : ''}">
-							<!-- Front face: poster + pick -->
-							<button
-								onclick={() => pickMovie(side)}
-								disabled={currentRoundData.revealed || transitioning}
-								class="card-face w-full rounded-xl bg-dark-surface/80 backdrop-blur-sm border p-4 text-center transition-all
-									{currentRoundData.revealed
-										? currentRoundData.correctAnswer === side
-											? 'border-crt-lime/60 bg-crt-lime/10'
-											: currentRoundData.userAnswer === side
-												? 'border-crt-red/60 bg-crt-red/10'
-												: 'border-crt-amber/10'
-										: 'border-white/10 hover:border-crt-amber/50 hover:bg-dark-surface cursor-pointer'}"
-							>
-								<!-- Info toggle -->
-								<div class="flex justify-end -mb-2">
-									<span
-										role="button"
-										tabindex="0"
-										class="w-6 h-6 flex items-center justify-center rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-white/10 cursor-pointer z-10"
-										onclick={(e) => { e.stopPropagation(); toggleFlip(); }}
-										onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleFlip(); } }}
-										aria-label="Show movie details"
-									>
-										ℹ
-									</span>
-								</div>
-
-								{#if movie.poster_path}
-									<img
-										src={posterUrl(movie.poster_path)}
-										alt={movie.title}
-										class="mx-auto mb-3 w-32 rounded-lg shadow-lg sm:w-40"
-									/>
-								{:else}
-									<div class="mx-auto mb-3 w-32 h-48 rounded-lg bg-white/5 flex items-center justify-center text-muted-foreground sm:w-40 sm:h-60">
-										No Poster
-									</div>
-								{/if}
-								<h3 class="font-bold text-sm sm:text-base">{movie.title}</h3>
-								<p class="text-xs text-muted-foreground">{movie.year}</p>
-
-								{#if currentRoundData.revealed}
-									<div class="mt-3">
-										<span class="text-lg font-bold {currentRoundData.correctAnswer === side ? 'text-crt-lime' : 'text-muted-foreground'}">
-											{movie.imdb_rating.toFixed(1)}
-										</span>
-										{#if currentRoundData.correctAnswer === side}
-											<span class="ml-1 text-xs font-semibold text-crt-lime">Higher!</span>
-										{/if}
-									</div>
-								{/if}
-							</button>
-
-							<!-- Back face: movie details -->
-							<div
-								class="card-back w-full rounded-xl bg-black/60 backdrop-blur-sm border border-crt-amber/10 p-4 flex flex-col justify-between"
-							>
-								<div>
-									<div class="flex justify-between items-start mb-3">
-										<h3 class="font-bold text-sm sm:text-base text-left">{movie.title}</h3>
-										<button
-											onclick={() => toggleFlip()}
-											class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-xs text-muted-foreground hover:text-foreground hover:bg-white/10"
-											aria-label="Back to poster"
-										>
-											✕
-										</button>
-									</div>
-
-									<div class="space-y-2 text-xs text-left">
-										<div>
-											<span class="text-muted-foreground">Year:</span>
-											<span class="ml-1">{movie.year}</span>
-										</div>
-										<div>
-											<span class="text-muted-foreground">Director:</span>
-											<span class="ml-1">{movie.director}</span>
-										</div>
-										<div>
-											<span class="text-muted-foreground">Runtime:</span>
-											<span class="ml-1">{movie.runtime} min</span>
-										</div>
-										<div>
-											<span class="text-muted-foreground">Genre:</span>
-											<span class="ml-1">{movie.genres.join(', ')}</span>
-										</div>
-										<div>
-											<span class="text-muted-foreground">Country:</span>
-											<span class="ml-1">{movie.country}</span>
-										</div>
-										{#if movie.keywords.length > 0}
-											<div>
-												<span class="text-muted-foreground">Keywords:</span>
-												<span class="ml-1">{movie.keywords.slice(0, 5).join(', ')}</span>
-											</div>
-										{/if}
-									</div>
-								</div>
-
-								<!-- Pick button on back face too -->
-								{#if !currentRoundData.revealed && !transitioning}
-									<button
-										onclick={() => pickMovie(side)}
-										class="mt-4 w-full rounded-lg bg-white/10 py-2 text-sm font-semibold hover:bg-white/20 transition-colors"
-									>
-										Pick this movie
-									</button>
-								{:else if currentRoundData.revealed}
-									<div class="mt-4 text-center">
-										<span class="text-lg font-bold {currentRoundData.correctAnswer === side ? 'text-crt-lime' : 'text-muted-foreground'}">
-											{movie.imdb_rating.toFixed(1)}
-										</span>
-										{#if currentRoundData.correctAnswer === side}
-											<span class="ml-1 text-xs font-semibold text-crt-lime">Higher!</span>
-										{/if}
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/each}
+				<MovieCard
+					bind:this={cardA}
+					movie={currentRoundData.movieA}
+					onclick={() => pickMovie('A')}
+					disabled={currentRoundData.revealed || transitioning}
+					revealed={currentRoundData.revealed}
+					isCorrect={currentRoundData.correctAnswer === 'A'}
+					isUserPick={currentRoundData.userAnswer === 'A'}
+					showRating={currentRoundData.revealed}
+					ratingLabel={currentRoundData.correctAnswer === 'A' ? 'Higher!' : ''}
+				/>
+				<MovieCard
+					bind:this={cardB}
+					movie={currentRoundData.movieB}
+					onclick={() => pickMovie('B')}
+					disabled={currentRoundData.revealed || transitioning}
+					revealed={currentRoundData.revealed}
+					isCorrect={currentRoundData.correctAnswer === 'B'}
+					isUserPick={currentRoundData.userAnswer === 'B'}
+					showRating={currentRoundData.revealed}
+					ratingLabel={currentRoundData.correctAnswer === 'B' ? 'Higher!' : ''}
+				/>
 			</div>
 
 			<!-- Centered feedback badge (overlays between the two cards) -->
@@ -521,7 +393,7 @@
 				{@const isCorrect = currentRoundData.userAnswer === currentRoundData.correctAnswer}
 				<div
 					class="feedback-badge absolute top-1/2 left-1/2 z-10 rounded-full px-5 py-2 text-sm font-bold shadow-lg
-						{isCorrect ? 'bg-crt-lime text-white' : 'bg-crt-red text-white'}"
+						{isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}"
 				>
 					{isCorrect ? 'Correct!' : 'Wrong!'}
 				</div>

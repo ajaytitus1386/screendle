@@ -6,9 +6,11 @@
 		onSelect: (movie: Movie) => void;
 		disabled?: boolean;
 		guessedIds?: number[];
+		placeholderNames?: string[];
+		guessCount?: string;
 	}
 
-	let { onSelect, disabled = false, guessedIds = [] }: Props = $props();
+	let { onSelect, disabled = false, guessedIds = [], placeholderNames = [], guessCount = '' }: Props = $props();
 
 	let query = $state('');
 	let results: Movie[] = $state([]);
@@ -18,8 +20,67 @@
 	let isLoading = $state(false);
 	let showDropdown = $state(false);
 	let selectedIndex = $state(-1);
+	let isFocused = $state(false);
 
 	const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w92';
+
+	// Animated placeholder — static text when unfocused, typewriter when focused
+	const STATIC_PLACEHOLDER = 'Search for a movie...';
+	let animatedPlaceholder = $state(STATIC_PLACEHOLDER);
+
+	$effect(() => {
+		if (disabled) {
+			animatedPlaceholder = 'Game over!';
+			return;
+		}
+
+		if (!isFocused || placeholderNames.length === 0) {
+			animatedPlaceholder = STATIC_PLACEHOLDER;
+			return;
+		}
+
+		let nameIndex = 0;
+		let charIndex = 0;
+		let isDeleting = false;
+		let timeoutId: ReturnType<typeof setTimeout>;
+
+		function tick() {
+			const name = placeholderNames[nameIndex];
+
+			if (!isDeleting) {
+				charIndex++;
+				animatedPlaceholder = name.slice(0, charIndex);
+
+				if (charIndex >= name.length) {
+					timeoutId = setTimeout(() => {
+						isDeleting = true;
+						tick();
+					}, 1500);
+					return;
+				}
+
+				const typeSpeed = Math.max(40, Math.min(120, 2000 / name.length));
+				timeoutId = setTimeout(tick, typeSpeed);
+			} else {
+				charIndex--;
+				animatedPlaceholder = name.slice(0, charIndex) || '\u200B';
+
+				if (charIndex <= 0) {
+					isDeleting = false;
+					nameIndex = (nameIndex + 1) % placeholderNames.length;
+					timeoutId = setTimeout(tick, 400);
+					return;
+				}
+
+				const deleteSpeed = Math.max(25, Math.min(80, 1200 / name.length));
+				timeoutId = setTimeout(tick, deleteSpeed);
+			}
+		}
+
+		timeoutId = setTimeout(tick, 400);
+
+		return () => clearTimeout(timeoutId);
+	});
 
 	let debounceTimer: ReturnType<typeof setTimeout>;
 
@@ -91,6 +152,7 @@
 		// Delay to allow click on dropdown item
 		setTimeout(() => {
 			showDropdown = false;
+			isFocused = false;
 		}, 200);
 	}
 </script>
@@ -98,15 +160,21 @@
 <div class="relative">
 	<Input
 		type="text"
-		placeholder={disabled ? 'Game over!' : 'Search for a movie...'}
+		placeholder={animatedPlaceholder}
 		value={query}
 		oninput={handleInput}
 		onkeydown={handleKeydown}
-		onfocus={() => (showDropdown = true)}
+		onfocus={() => { isFocused = true; showDropdown = true; }}
 		onblur={handleBlur}
 		{disabled}
-		class="bg-black/40 backdrop-blur-sm border-white/20 focus:border-white/40"
+		class="bg-black/40 backdrop-blur-sm border-white/20 focus:border-white/40 {guessCount && !isFocused ? 'pr-24' : ''}"
 	/>
+
+	{#if guessCount && !isFocused}
+		<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+			{guessCount}
+		</span>
+	{/if}
 
 	{#if showDropdown && (filteredResults.length > 0 || isLoading)}
 		<div

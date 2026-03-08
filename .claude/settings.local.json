@@ -16,7 +16,9 @@
       "Bash(timeout /t 5 /nobreak)",
       "Bash(gh --version:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run:*)",
+      "Bash(npx svelte-check:*)"
     ]
   }
 }

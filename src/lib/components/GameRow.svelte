@@ -1,13 +1,15 @@
 <script lang="ts">
-	import type { GuessResult, MatchType, Direction } from '$lib/types';
+	import type { GuessResult, MatchType } from '$lib/types';
 	import { cn } from '$lib/utils';
+	import { ArrowBigUp, ArrowBigDown, Trophy } from '@lucide/svelte';
 
 	interface Props {
 		result: GuessResult;
 		delay?: number;
+		guessNumber?: number | string;
 	}
 
-	let { result, delay = 0 }: Props = $props();
+	let { result, delay = 0, guessNumber }: Props = $props();
 
 	const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w92';
 
@@ -18,11 +20,11 @@
 	function getMatchClass(match: MatchType): string {
 		switch (match) {
 			case 'exact':
-				return 'bg-crt-lime/70';
+				return 'bg-green-600/70';
 			case 'partial':
-				return 'bg-crt-amber/70';
+				return 'bg-orange-500/70';
 			case 'none':
-				return 'bg-crt-red/50';
+				return 'bg-red-600/50';
 		}
 	}
 
@@ -33,18 +35,35 @@
 		return value.slice(0, 3).join(', ') + '...';
 	}
 
-	function getArrow(direction?: Direction): string {
-		if (!direction || direction === 'match') return '';
-		return direction === 'up' ? '↑' : '↓';
-	}
 </script>
+
+{#snippet directionArrow(direction: string)}
+	<span class="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 text-white/20">
+		{#if direction === 'up'}
+			<ArrowBigUp class="w-12 h-12" />
+		{:else}
+			<ArrowBigDown class="w-12 h-12" />
+		{/if}
+	</span>
+{/snippet}
 
 <div
 	class="flex gap-2 animate-in fade-in slide-in-from-bottom-2"
 	style="animation-delay: {delay}s; animation-fill-mode: backwards;"
 >
+	<!-- Guess # -->
+	{#if guessNumber !== undefined}
+		<div class="w-8 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-muted-foreground">
+			{#if guessNumber === 'A'}
+				<Trophy class="w-4 h-4 text-crt-amber" />
+			{:else}
+				{guessNumber}
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Poster -->
-	<div class="w-16 h-24 flex-shrink-0 self-start overflow-hidden rounded-lg bg-black/60 backdrop-blur-sm">
+	<div class="w-14 h-[84px] flex-shrink-0 self-start overflow-hidden rounded-lg bg-black/60 backdrop-blur-sm">
 		{#if result.movie.poster_path}
 			<img
 				src="{TMDB_IMAGE_BASE}{result.movie.poster_path}"
@@ -85,10 +104,10 @@
 			getMatchClass(result.matches.year.match)
 		)}
 	>
-		<div class="flex h-full flex-col items-center justify-center">
+		<div class="flex h-full items-center justify-center relative">
 			<span class="font-semibold">{result.matches.year.value}</span>
 			{#if result.matches.year.direction && result.matches.year.direction !== 'match'}
-				<span class="text-lg">{getArrow(result.matches.year.direction)}</span>
+				{@render directionArrow(result.matches.year.direction)}
 			{/if}
 		</div>
 	</div>
@@ -100,10 +119,10 @@
 			getMatchClass(result.matches.runtime.match)
 		)}
 	>
-		<div class="flex h-full flex-col items-center justify-center">
+		<div class="flex h-full items-center justify-center relative">
 			<span class="font-semibold">{result.matches.runtime.value}m</span>
 			{#if result.matches.runtime.direction && result.matches.runtime.direction !== 'match'}
-				<span class="text-lg">{getArrow(result.matches.runtime.direction)}</span>
+				{@render directionArrow(result.matches.runtime.direction)}
 			{/if}
 		</div>
 	</div>
@@ -115,10 +134,10 @@
 			getMatchClass(result.matches.imdb_rating.match)
 		)}
 	>
-		<div class="flex h-full flex-col items-center justify-center">
+		<div class="flex h-full items-center justify-center relative">
 			<span class="font-semibold">{result.matches.imdb_rating.value}</span>
 			{#if result.matches.imdb_rating.direction && result.matches.imdb_rating.direction !== 'match'}
-				<span class="text-lg">{getArrow(result.matches.imdb_rating.direction)}</span>
+				{@render directionArrow(result.matches.imdb_rating.direction)}
 			{/if}
 		</div>
 	</div>

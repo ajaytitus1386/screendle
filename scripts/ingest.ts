@@ -77,6 +77,8 @@ interface MovieRow {
 	keywords: string[];
 	country: string;
 	poster_url: string | null;
+	plot_short: string | null;
+	plot_full: string | null;
 }
 
 interface Checkpoint {
@@ -136,18 +138,39 @@ async function tmdbFetch(path: string): Promise<any> {
 	return res.json();
 }
 
-async function getOmdbRating(imdbId: string): Promise<number> {
+interface OmdbData {
+	imdbRating: number;
+	plotShort: string | null;
+	plotFull: string | null;
+}
+
+async function getOmdbData(imdbId: string): Promise<OmdbData> {
+	const result: OmdbData = { imdbRating: 0, plotShort: null, plotFull: null };
 	try {
-		const res = await fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`);
-		if (!res.ok) return 0;
-		const data = await res.json();
-		if (data.imdbRating && data.imdbRating !== 'N/A') {
-			return parseFloat(data.imdbRating);
+		// Short plot (default)
+		const res = await fetch(`https://www.omdbapi.com/?i=${imdbId}&plot=short&apikey=${OMDB_API_KEY}`);
+		if (res.ok) {
+			const data = await res.json();
+			if (data.imdbRating && data.imdbRating !== 'N/A') {
+				result.imdbRating = parseFloat(data.imdbRating);
+			}
+			if (data.Plot && data.Plot !== 'N/A') {
+				result.plotShort = data.Plot;
+			}
+		}
+		// Full plot (separate request)
+		await sleep(OMDB_DELAY_MS);
+		const resFull = await fetch(`https://www.omdbapi.com/?i=${imdbId}&plot=full&apikey=${OMDB_API_KEY}`);
+		if (resFull.ok) {
+			const dataFull = await resFull.json();
+			if (dataFull.Plot && dataFull.Plot !== 'N/A') {
+				result.plotFull = dataFull.Plot;
+			}
 		}
 	} catch {
 		// skip
 	}
-	return 0;
+	return result;
 }
 
 async function fetchMovieDetails(tmdbId: number): Promise<MovieRow | null> {
@@ -171,9 +194,14 @@ async function fetchMovieDetails(tmdbId: number): Promise<MovieRow | null> {
 			'Unknown';
 
 		let imdbRating = 0;
+		let plotShort: string | null = null;
+		let plotFull: string | null = null;
 		if (details.imdb_id) {
 			await sleep(OMDB_DELAY_MS);
-			imdbRating = await getOmdbRating(details.imdb_id);
+			const omdb = await getOmdbData(details.imdb_id);
+			imdbRating = omdb.imdbRating;
+			plotShort = omdb.plotShort;
+			plotFull = omdb.plotFull;
 		}
 
 		const year = details.release_date
@@ -193,7 +221,9 @@ async function fetchMovieDetails(tmdbId: number): Promise<MovieRow | null> {
 			country: COUNTRY_MAP[countryCode] || countryCode,
 			poster_url: details.poster_path
 				? `https://image.tmdb.org/t/p/w500${details.poster_path}`
-				: null
+				: null,
+			plot_short: plotShort,
+			plot_full: plotFull
 		};
 	} catch (err) {
 		console.error(`Failed to fetch TMDB ID ${tmdbId}:`, err);
@@ -245,7 +275,7 @@ async function discoverMovieIds(): Promise<number[]> {
 
 function movieToSQL(movie: MovieRow): string {
 	return (
-		`INSERT OR IGNORE INTO movies (tmdb_id, imdb_id, title, year, runtime, imdb_rating, director, genres, keywords, country, poster_url) VALUES (` +
+		`INSERT OR IGNORE INTO movies (tmdb_id, imdb_id, title, year, runtime, imdb_rating, director, genres, keywords, country, poster_url, plot_short, plot_full) VALUES (` +
 		`${movie.tmdb_id}, ` +
 		`${movie.imdb_id ? `'${escapeSQL(movie.imdb_id)}'` : 'NULL'}, ` +
 		`'${escapeSQL(movie.title)}', ` +
@@ -256,7 +286,9 @@ function movieToSQL(movie: MovieRow): string {
 		`'${escapeSQL(JSON.stringify(movie.genres))}', ` +
 		`'${escapeSQL(JSON.stringify(movie.keywords))}', ` +
 		`'${escapeSQL(movie.country)}', ` +
-		`${movie.poster_url ? `'${escapeSQL(movie.poster_url)}'` : 'NULL'}` +
+		`${movie.poster_url ? `'${escapeSQL(movie.poster_url)}'` : 'NULL'}, ` +
+		`${movie.plot_short ? `'${escapeSQL(movie.plot_short)}'` : 'NULL'}, ` +
+		`${movie.plot_full ? `'${escapeSQL(movie.plot_full)}'` : 'NULL'}` +
 		`);`
 	);
 }

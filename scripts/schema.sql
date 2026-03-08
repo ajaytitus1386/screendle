@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS movies (
   genres TEXT,         -- JSON array e.g. ["Action","Drama"]
   keywords TEXT,       -- JSON array e.g. ["heist","prison"]
   country TEXT,
-  poster_url TEXT
+  poster_url TEXT,
+  plot_short TEXT,
+  plot_full TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_movies_title ON movies(title);

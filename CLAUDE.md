@@ -30,7 +30,15 @@ Daily movie guessing game (like Wordle but for movies). Guess a movie, get feedb
 - **Green**: Exact match
 - **Orange**: Partial match (e.g., one genre overlaps)
 - **Red**: No match
-- **Arrows**: Higher/lower for numeric properties
+- **Arrows**: Higher/lower for numeric properties (Lucide ArrowBigUp/ArrowBigDown icons, centered behind value at 20% opacity)
+
+## Classic Mode UI Details
+- **Column headers**: Icon-only with text label on hover (icon/text swap via group-hover)
+- **Expanded rows**: Full property cells with match colors, poster thumbnail (w-14 h-[84px])
+- **Collapsed rows**: Column-width-aligned colored blocks matching header widths, truncated title in poster column
+- **Direction arrows**: Rendered as a reusable `{#snippet directionArrow}` in GameRow.svelte
+- **Accumulated clues**: Chips with white label + colored value (orange for ranges/partials, green for exact matches)
+- **Answer row**: Trophy icon (CRT amber) in # column when game is lost (guessNumber === 'A')
 
 ## Game Modes
 
@@ -83,8 +91,10 @@ src/
 │   ├── utils.ts                    # Utility functions (cn)
 │   └── components/
 │       ├── ui/                     # shadcn-svelte components
-│       ├── GameRow.svelte          # Guess row with colored cells
+│       ├── CollapsedRow.svelte      # Collapsed guess row (column-aligned colored blocks)
+│       ├── GameRow.svelte          # Expanded guess row with colored cells + arrow icons
 │       ├── HowToPlay.svelte        # How to play modal (Classic + Scales tabs)
+│       ├── MovieCard.svelte        # Movie poster card (used in suggestions)
 │       └── SearchInput.svelte      # Autocomplete movie search
 ├── routes/
 │   ├── +layout.svelte              # Root layout (navbar, how-to-play)

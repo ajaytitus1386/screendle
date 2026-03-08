@@ -203,6 +203,7 @@
    See: FOUN-04
    ======================================== */
 
+
 @media (prefers-reduced-motion: reduce) {
   /* Remove scanline overlay */
   .crt-scanlines::before {

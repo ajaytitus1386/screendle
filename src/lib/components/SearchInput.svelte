@@ -8,9 +8,12 @@
 		guessedIds?: number[];
 		placeholderNames?: string[];
 		guessCount?: string;
+		suggestions?: Movie[];
 	}
 
-	let { onSelect, disabled = false, guessedIds = [], placeholderNames = [], guessCount = '' }: Props = $props();
+	let { onSelect, disabled = false, guessedIds = [], placeholderNames = [], guessCount = '', suggestions = [] }: Props = $props();
+
+	const TMDB_POSTER_BASE = 'https://image.tmdb.org/t/p/w185';
 
 	let query = $state('');
 	let results: Movie[] = $state([]);
@@ -155,6 +158,32 @@
 			isFocused = false;
 		}, 200);
 	}
+
+	// Auto-scrolling carousel for quick picks
+	let carouselEl: HTMLDivElement | undefined = $state();
+	let scrollPaused = $state(false);
+
+	$effect(() => {
+		const el = carouselEl;
+		const shouldScroll = showDropdown && isFocused && query.length === 0 && suggestions.length > 0 && !disabled;
+		if (!el || !shouldScroll) return;
+
+		let animId: number;
+		const speed = 0.5; // px per frame
+
+		function step() {
+			if (!scrollPaused && el) {
+				el.scrollLeft += speed;
+				// Loop: when we've scrolled past halfway (the duplicated set), reset
+				if (el.scrollLeft >= el.scrollWidth / 2) {
+					el.scrollLeft = 0;
+				}
+			}
+			animId = requestAnimationFrame(step);
+		}
+		animId = requestAnimationFrame(step);
+		return () => cancelAnimationFrame(animId);
+	});
 </script>
 
 <div class="relative">
@@ -211,6 +240,42 @@
 					</button>
 				{/each}
 			{/if}
+		</div>
+	{:else if showDropdown && isFocused && query.length === 0 && suggestions.length > 0 && !disabled}
+		<!-- Auto-scrolling quick picks carousel -->
+		<div class="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg border border-white/10 bg-black/90 backdrop-blur-md p-3">
+			<p class="text-xs text-muted-foreground mb-2">Quick picks &mdash; click to guess:</p>
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				bind:this={carouselEl}
+				class="quick-picks-carousel flex gap-2 overflow-x-auto"
+				onmouseenter={() => scrollPaused = true}
+				onmouseleave={() => scrollPaused = false}
+				ontouchstart={() => scrollPaused = true}
+				ontouchend={() => { setTimeout(() => scrollPaused = false, 2000); }}
+			>
+				<!-- Duplicate suggestions for seamless looping -->
+				{#each [...suggestions, ...suggestions] as movie, i}
+					<button
+						type="button"
+						class="flex-shrink-0 w-20 rounded-xl overflow-hidden border border-white/10 hover:border-crt-amber/50 transition-colors cursor-pointer"
+						onmousedown={(e) => { e.preventDefault(); handleSelect(movie); }}
+						ontouchend={(e) => { e.preventDefault(); handleSelect(movie); }}
+					>
+						{#if movie.poster_path}
+							<img
+								src="{TMDB_POSTER_BASE}{movie.poster_path}"
+								alt={movie.title}
+								class="w-full aspect-[2/3] object-cover block"
+							/>
+						{:else}
+							<div class="w-full aspect-[2/3] bg-white/5 flex items-center justify-center text-muted-foreground text-xs">
+								?
+							</div>
+						{/if}
+					</button>
+				{/each}
+			</div>
 		</div>
 	{/if}
 

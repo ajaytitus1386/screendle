@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { GuessResult, Movie, GameSave } from '$lib/types';
-	import { getTodaysDateKey } from '$lib/daily';
+	import { getTodaysDateKey, getPuzzleNumber } from '$lib/daily';
 	import GameRow from '$lib/components/GameRow.svelte';
 	import CollapsedRow from '$lib/components/CollapsedRow.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import MovieCard from '$lib/components/MovieCard.svelte';
-	import { Film, Calendar, Clock, Star, Clapperboard, Tag, Globe, ChevronDown, ChevronUp } from '@lucide/svelte';
+	import { Film, Calendar, Clock, Star, Clapperboard, Tag, Globe, ChevronDown, ChevronUp, ArrowBigDown } from '@lucide/svelte';
 
 	// Column headers for the property grid
 	const columns = [
@@ -22,6 +21,12 @@
 	];
 
 	const STORAGE_KEY = 'screendle-game';
+
+	// Puzzle identity
+	const todayKey = getTodaysDateKey();
+	const puzzleNumber = getPuzzleNumber(todayKey);
+	const formattedDate = new Date(todayKey).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+	let isRandomGame = $state(false);
 
 	// Game state
 	let guesses: GuessResult[] = $state([]);
@@ -132,6 +137,7 @@
 
 	function saveGame() {
 		if (!targetMovie) return;
+		if (isRandomGame) return;
 
 		const save: GameSave = {
 			date: getTodaysDateKey(),
@@ -254,7 +260,9 @@
 		imdbMin: number | null;
 		imdbMax: number | null;
 		possibleGenres: string[];
+		genresExact: boolean;
 		possibleKeywords: string[];
+		keywordsExact: boolean;
 		knownDirector: string | null;
 		knownCountry: string | null;
 	}
@@ -268,13 +276,17 @@
 			imdbMin: null,
 			imdbMax: null,
 			possibleGenres: [],
+			genresExact: false,
 			possibleKeywords: [],
+			keywordsExact: false,
 			knownDirector: null,
 			knownCountry: null
 		};
 
 		const matchingGenres: string[][] = [];
 		const matchingKeywords: string[][] = [];
+		let exactGenres: string[] | null = null;
+		let exactKeywords: string[] | null = null;
 
 		for (const guess of guesses) {
 			const { matches } = guess;
@@ -291,7 +303,7 @@
 				result.yearMax = matches.year.value as number;
 			}
 
-			// Runtime constraints
+			// Runtime constraints (exact uses ±5 tolerance window)
 			if (matches.runtime.direction === 'up') {
 				const val = matches.runtime.value as number;
 				result.runtimeMin = result.runtimeMin ? Math.max(result.runtimeMin, val + 1) : val + 1;
@@ -299,8 +311,11 @@
 				const val = matches.runtime.value as number;
 				result.runtimeMax = result.runtimeMax ? Math.min(result.runtimeMax, val - 1) : val - 1;
 			} else if (matches.runtime.match === 'exact') {
-				result.runtimeMin = matches.runtime.value as number;
-				result.runtimeMax = matches.runtime.value as number;
+				const val = matches.runtime.value as number;
+				const windowMin = val - 5;
+				const windowMax = val + 5;
+				result.runtimeMin = result.runtimeMin ? Math.max(result.runtimeMin, windowMin) : windowMin;
+				result.runtimeMax = result.runtimeMax ? Math.min(result.runtimeMax, windowMax) : windowMax;
 			}
 
 			// IMDb constraints
@@ -315,13 +330,17 @@
 				result.imdbMax = matches.imdb_rating.value as number;
 			}
 
-			// Collect partial/exact genre matches
-			if (matches.genre.match === 'partial' || matches.genre.match === 'exact') {
+			// Collect genre matches — exact takes precedence
+			if (matches.genre.match === 'exact') {
+				exactGenres = matches.genre.value as string[];
+			} else if (matches.genre.match === 'partial') {
 				matchingGenres.push(matches.genre.value as string[]);
 			}
 
-			// Collect partial/exact keyword matches
-			if (matches.keywords.match === 'partial' || matches.keywords.match === 'exact') {
+			// Collect keyword matches — exact takes precedence
+			if (matches.keywords.match === 'exact') {
+				exactKeywords = matches.keywords.value as string[];
+			} else if (matches.keywords.match === 'partial') {
 				matchingKeywords.push(matches.keywords.value as string[]);
 			}
 
@@ -334,16 +353,22 @@
 			}
 		}
 
-		// Find common genres across all partial matches
-		if (matchingGenres.length > 0) {
+		// Use exact genres if found, otherwise intersect partials
+		if (exactGenres) {
+			result.possibleGenres = exactGenres;
+			result.genresExact = true;
+		} else if (matchingGenres.length > 0) {
 			result.possibleGenres = matchingGenres.reduce((acc, genres) => {
 				if (acc.length === 0) return genres;
 				return acc.filter(g => genres.some(g2 => g2.toLowerCase() === g.toLowerCase()));
 			}, [] as string[]);
 		}
 
-		// Find common keywords across all partial matches
-		if (matchingKeywords.length > 0) {
+		// Use exact keywords if found, otherwise intersect partials
+		if (exactKeywords) {
+			result.possibleKeywords = exactKeywords;
+			result.keywordsExact = true;
+		} else if (matchingKeywords.length > 0) {
 			result.possibleKeywords = matchingKeywords.reduce((acc, keywords) => {
 				if (acc.length === 0) return keywords;
 				return acc.filter(k => keywords.some(k2 => k2.toLowerCase() === k.toLowerCase()));
@@ -380,16 +405,21 @@
 		return { label: '', value: '' };
 	}
 
-	function formatRuntimeClue(min: number | null, max: number | null): { label: string; value: string } {
-		if (min !== null && max !== null && min === max) return { label: 'Is', value: `${formatRuntime(min)} long` };
+	function formatRuntimeClue(min: number | null, max: number | null): { label: string; value: string; isExact: boolean } {
+		if (min !== null && max !== null && min === max) return { label: 'Is', value: `${formatRuntime(min)} long`, isExact: true };
 		if (min !== null && max !== null) {
 			const lo = Math.min(min, max);
 			const hi = Math.max(min, max);
-			return { label: 'Between', value: `${formatRuntime(lo)} and ${formatRuntime(hi)}` };
+			// Close range from tolerance matching — show "Around Xm"
+			if (hi - lo <= 10) {
+				const mid = Math.round((lo + hi) / 2);
+				return { label: 'Around', value: formatRuntime(mid), isExact: true };
+			}
+			return { label: 'Between', value: `${formatRuntime(lo)} and ${formatRuntime(hi)}`, isExact: false };
 		}
-		if (min !== null) return { label: 'Longer than', value: formatRuntime(min - 1) };
-		if (max !== null) return { label: 'Shorter than', value: formatRuntime(max + 1) };
-		return { label: '', value: '' };
+		if (min !== null) return { label: 'Longer than', value: formatRuntime(min - 1), isExact: false };
+		if (max !== null) return { label: 'Shorter than', value: formatRuntime(max + 1), isExact: false };
+		return { label: '', value: '', isExact: false };
 	}
 
 	function formatRatingClue(min: number | null, max: number | null): { label: string; value: string } {
@@ -438,8 +468,13 @@
 <main class="container mx-auto max-w-5xl px-4 py-8">
 	<!-- Header -->
 	<header class="mb-8 text-center">
-		<h1 class="mb-2 text-4xl font-headline font-bold tracking-tight">Screendle</h1>
-		<p class="text-text-cream/70">Classic &mdash; Guess the movie</p>
+		<h1 class="mb-1 text-4xl font-headline font-bold tracking-tight">Screendle</h1>
+		{#if isRandomGame}
+			<p class="text-text-cream/70">Practice Mode</p>
+		{:else}
+			<p class="text-crt-amber/80 text-sm font-semibold">Classic #{puzzleNumber}</p>
+			<p class="text-text-cream/50 text-xs">{formattedDate}</p>
+		{/if}
 	</header>
 
 	{#if loading}
@@ -452,7 +487,7 @@
 		</div>
 	{:else}
 
-		<!-- Search Input -->
+		<!-- Search Input (with quick picks carousel in dropdown) -->
 		<div class="mx-auto mb-6 max-w-md">
 			<SearchInput
 				onSelect={handleGuess}
@@ -460,31 +495,46 @@
 				guessedIds={guesses.map(g => g.movie.id)}
 				placeholderNames={suggestionNames}
 				guessCount={guesses.length > 0 ? `${guesses.length} / 10 guesses` : ''}
+				suggestions={filteredSuggestions}
 			/>
 		</div>
 
-		<!-- Suggestions Row — always visible while playing -->
-		{#if filteredSuggestions.length > 0 && !gameOver}
-			<div class="mx-auto mb-4 max-w-3xl">
-				<p class="text-xs text-muted-foreground mb-2 text-center">
-					{guesses.length === 0 ? 'Try one of these to get started:' : 'Quick picks:'}
-				</p>
-				<div class="flex justify-center gap-2 overflow-x-auto pb-1">
-					{#each filteredSuggestions as movie}
-						<MovieCard
-							{movie}
-							onclick={() => handleGuess(movie)}
-							disabled={gameOver}
-							flippable={false}
-							class="w-28 flex-shrink-0"
-						/>
-					{/each}
+		<!-- Clues / Game Over / Initial state — same slot -->
+		{#if guesses.length === 0 && !gameOver}
+			<!-- Initial state: placeholder clues box (matches real clue box styling) -->
+			<div class="mx-auto mb-6 max-w-3xl rounded-lg bg-crt-cyan/10 border border-crt-cyan/30 p-4 backdrop-blur-sm">
+				<h3 class="text-sm font-semibold text-crt-cyan mb-1">Accumulated Clues</h3>
+				<p class="text-xs text-crt-cyan/60 mb-3">Guess a movie and your clues will appear here</p>
+				<div class="flex flex-wrap gap-3 text-xs">
+					<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5 opacity-40">
+						<Calendar class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+						<span class="text-foreground">Released in </span><span class="text-green-400">1972</span>
+					</div>
+					<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5 opacity-40">
+						<Clock class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+						<span class="text-foreground">Shorter than </span><span class="text-orange-400">175m</span>
+					</div>
+					<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5 opacity-40">
+						<Star class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+						<span class="text-foreground">Rated below </span><span class="text-orange-400">9.2</span>
+					</div>
+					<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5 opacity-40">
+						<Film class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+						<span class="text-foreground">Includes </span><span class="text-orange-400">Drama</span>
+					</div>
+					<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5 opacity-40">
+						<Globe class="w-3 h-3 text-muted-foreground flex-shrink-0" />
+						<span class="text-foreground">Made in </span><span class="text-green-400">USA</span>
+					</div>
 				</div>
+				<button
+					onclick={() => { const event = new CustomEvent('open-how-to-play', { bubbles: true }); document.dispatchEvent(event); }}
+					class="mt-3 rounded bg-crt-cyan/15 px-3 py-1.5 text-xs font-semibold text-crt-cyan hover:bg-crt-cyan/25 transition-colors"
+				>
+					How to Play
+				</button>
 			</div>
-		{/if}
-
-		<!-- Clues / Game Over — mutually exclusive, same slot -->
-		{#if gameOver && targetMovie}
+		{:else if gameOver && targetMovie}
 			<div class="mx-auto mb-6 max-w-3xl rounded-lg {won ? 'bg-green-600/10 border-green-600/30' : 'bg-red-600/10 border-red-600/30'} border p-4 backdrop-blur-sm">
 				<h3 class="text-sm font-semibold {won ? 'text-green-400' : 'text-red-400'} mb-1">
 					{won ? 'Congratulations!' : 'Game Over'}
@@ -505,7 +555,7 @@
 						{shareCopied ? 'Copied!' : 'Share'}
 					</button>
 					<button
-						onclick={() => fetch('/api/daily?random=true').then(r => r.json()).then(data => { targetMovie = data.movie; guesses = []; gameOver = false; won = false; })}
+						onclick={() => fetch('/api/daily?random=true').then(r => r.json()).then(data => { targetMovie = data.movie; guesses = []; gameOver = false; won = false; isRandomGame = true; suggestions = []; })}
 						class="rounded bg-black/30 px-3 py-1.5 text-xs font-semibold hover:bg-black/50 transition-colors"
 					>
 						New Game
@@ -526,11 +576,10 @@
 						</div>
 					{/if}
 					{#if clues.runtimeMin !== null || clues.runtimeMax !== null}
-						{@const runtimeExact = clues.runtimeMin !== null && clues.runtimeMax !== null && clues.runtimeMin === clues.runtimeMax}
 						{@const runtimeClue = formatRuntimeClue(clues.runtimeMin, clues.runtimeMax)}
 						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
 							<Clock class="w-3 h-3 text-muted-foreground flex-shrink-0" />
-							<span class="text-foreground">{runtimeClue.label} </span><span class={runtimeExact ? 'text-green-400' : 'text-orange-400'}>{runtimeClue.value}</span>
+							<span class="text-foreground">{runtimeClue.label} </span><span class={runtimeClue.isExact ? 'text-green-400' : 'text-orange-400'}>{runtimeClue.value}</span>
 						</div>
 					{/if}
 					{#if clues.imdbMin !== null || clues.imdbMax !== null}
@@ -544,13 +593,13 @@
 					{#if clues.possibleGenres.length > 0}
 						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
 							<Film class="w-3 h-3 text-muted-foreground flex-shrink-0" />
-							<span class="text-foreground">Includes </span><span class="text-orange-400">{clues.possibleGenres.join(', ')}</span>
+							<span class="text-foreground">{clues.genresExact ? 'Genres are' : 'Includes'} </span><span class={clues.genresExact ? 'text-green-400' : 'text-orange-400'}>{clues.possibleGenres.join(', ')}</span>
 						</div>
 					{/if}
 					{#if clues.possibleKeywords.length > 0}
 						<div class="bg-black/30 rounded px-2 py-1 flex items-center gap-1.5">
 							<Tag class="w-3 h-3 text-muted-foreground flex-shrink-0" />
-							<span class="text-foreground">Tagged with </span><span class="text-orange-400">{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
+							<span class="text-foreground">{clues.keywordsExact ? 'Keywords are' : 'Tagged with'} </span><span class={clues.keywordsExact ? 'text-green-400' : 'text-orange-400'}>{clues.possibleKeywords.slice(0, 5).join(', ')}{clues.possibleKeywords.length > 5 ? '...' : ''}</span>
 						</div>
 					{/if}
 					{#if clues.knownDirector}
@@ -569,29 +618,29 @@
 			</div>
 		{/if}
 
-		<!-- Game Board — hidden until first guess -->
-		{#if guesses.length > 0}
-			<div class="flex justify-center">
-				<div class="overflow-x-auto inline-flex flex-col">
-					<!-- Column Headers -->
-					<div class="mb-2 flex gap-2">
-						{#each columns as col}
-							<div
-								class="group {col.width} flex-shrink-0 rounded-lg bg-dark-surface/80 px-2 py-2
-											 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground
-											 backdrop-blur-sm flex items-center justify-center"
-							>
-								{#if col.icon}
-									{@const Icon = col.icon}
-									<Icon class="w-4 h-4 block group-hover:hidden" />
-									<span class="hidden group-hover:block">{col.label}</span>
-								{:else}
-									{col.label}
-								{/if}
-							</div>
-						{/each}
-					</div>
+		<!-- Game Board -->
+		<div class="flex justify-center">
+			<div class="overflow-x-auto inline-flex flex-col">
+				<!-- Column Headers -->
+				<div class="mb-2 flex gap-2">
+					{#each columns as col}
+						<div
+							class="group {col.width} flex-shrink-0 rounded-lg bg-dark-surface/80 px-2 py-2
+										 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground
+										 backdrop-blur-sm flex items-center justify-center"
+						>
+							{#if col.icon}
+								{@const Icon = col.icon}
+								<Icon class="w-4 h-4 block group-hover:hidden" />
+								<span class="hidden group-hover:block">{col.label}</span>
+							{:else}
+								{col.label}
+							{/if}
+						</div>
+					{/each}
+				</div>
 
+		{#if guesses.length > 0}
 					<!-- Guess Rows (newest first) -->
 					<div class="flex flex-col gap-2">
 						{#if gameOver && !won && targetMovie}
@@ -633,9 +682,57 @@
 							{/if}
 						</button>
 					{/if}
-				</div>
-			</div>
+		{:else if !gameOver}
+					<!-- Static example row — The Godfather as a sample guess -->
+					<div class="flex gap-2 opacity-30">
+						<!-- # -->
+						<div class="w-8 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-muted-foreground">1</div>
+						<!-- Poster -->
+						<div class="w-14 h-[84px] flex-shrink-0 overflow-hidden rounded-lg bg-black/60">
+							<img src="https://image.tmdb.org/t/p/w92/3bhkrj58Vtu7enYsRolD1fZdja1.jpg" alt="The Godfather" class="h-full w-full object-cover" />
+						</div>
+						<!-- Genre: partial (orange) — Crime, Drama -->
+						<div class="w-28 flex-shrink-0 rounded-lg bg-orange-500/70 px-2 py-2 text-center text-xs backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center"><span>Crime, Drama</span></div>
+						</div>
+						<!-- Year: exact (green) — 1972 -->
+						<div class="w-20 flex-shrink-0 rounded-lg bg-green-600/70 px-2 py-2 text-center backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center"><span class="font-semibold">1972</span></div>
+						</div>
+						<!-- Runtime: none (red) — 175m, down arrow -->
+						<div class="w-20 flex-shrink-0 rounded-lg bg-red-600/50 px-2 py-2 text-center backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center relative">
+								<span class="font-semibold">175m</span>
+								<span class="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 text-white/20">
+									<ArrowBigDown class="w-12 h-12" />
+								</span>
+							</div>
+						</div>
+						<!-- IMDb: none (red) — 9.2, down arrow -->
+						<div class="w-20 flex-shrink-0 rounded-lg bg-red-600/50 px-2 py-2 text-center backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center relative">
+								<span class="font-semibold">9.2</span>
+								<span class="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 text-white/20">
+									<ArrowBigDown class="w-12 h-12" />
+								</span>
+							</div>
+						</div>
+						<!-- Director: none (red) -->
+						<div class="w-32 flex-shrink-0 rounded-lg bg-red-600/50 px-2 py-2 text-center text-xs backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center"><span class="line-clamp-2">Francis Ford Coppola</span></div>
+						</div>
+						<!-- Keywords: partial (orange) -->
+						<div class="w-32 flex-shrink-0 rounded-lg bg-orange-500/70 px-2 py-2 text-center text-xs backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center"><span class="line-clamp-3">mafia, family, power</span></div>
+						</div>
+						<!-- Country: exact (green) -->
+						<div class="w-24 flex-shrink-0 rounded-lg bg-green-600/70 px-2 py-2 text-center text-sm backdrop-blur-sm">
+							<div class="flex h-full items-center justify-center"><span>USA</span></div>
+						</div>
+					</div>
 		{/if}
+			</div>
+		</div>
 
 	{/if}
 </main>

@@ -17,11 +17,21 @@
 		$page.url.pathname.startsWith('/scales') ? 'scales' as const : 'classic' as const
 	);
 
-	onMount(() => {
-		if (!localStorage.getItem(SEEN_KEY)) {
+	// Auto-open How to Play only on first visit to an actual game mode page
+	$effect(() => {
+		const path = $page.url.pathname;
+		const isGameMode = path.startsWith('/classic') || path.startsWith('/scales');
+		if (isGameMode && !localStorage.getItem(SEEN_KEY)) {
 			howToPlayOpen = true;
 			localStorage.setItem(SEEN_KEY, '1');
 		}
+	});
+
+	// Listen for open-how-to-play events from child components
+	onMount(() => {
+		const handler = () => { howToPlayOpen = true; };
+		document.addEventListener('open-how-to-play', handler);
+		return () => document.removeEventListener('open-how-to-play', handler);
 	});
 </script>
 
@@ -31,7 +41,7 @@
 </svelte:head>
 
 <div class="dark min-h-screen bg-background text-foreground overflow-x-hidden">
-	<!-- Navbar - outside scanline container, no scanlines here -->
+	<!-- Navbar -->
 	<nav class="h-12 flex items-center justify-between px-4 border-b border-crt-amber/10">
 		<a href="/" class="text-sm font-headline font-semibold tracking-wide hover:text-crt-amber transition-colors">
 			<House class="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-crt-amber/10 transition-colors p-1 rounded-full"/>
@@ -47,8 +57,8 @@
 		</div>
 	</nav>
 
-	<!-- Content area with CRT scanline overlay -->
-	<div class="crt-scanlines">
+	<!-- Content area -->
+	<div class="min-h-[calc(100vh-3rem)]">
 		{@render children()}
 	</div>
 

@@ -143,6 +143,16 @@ export function getTodaysDateKey(): string {
 	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+// Classic puzzle number — days since launch
+// Adjust CLASSIC_START_DATE when the game officially launches
+const CLASSIC_START_DATE = new Date('2026-01-28');
+
+export function getPuzzleNumber(dateKey?: string): number {
+	const target = dateKey ? new Date(dateKey) : new Date();
+	const diffMs = target.getTime() - CLASSIC_START_DATE.getTime();
+	return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+}
+
 // Get a completely random movie ID (for testing/practice mode)
 export function getRandomMovieId(): number {
 	const index = Math.floor(Math.random() * DAILY_MOVIE_IDS.length);

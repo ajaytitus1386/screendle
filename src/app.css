@@ -167,34 +167,23 @@
 }
 
 /* ========================================
-   CRT SCANLINE OVERLAY
-   Isolated layer — remove this entire block to disable scanlines.
-   See: FOUN-03, FOUN-05
+   BREAKPOINT STANDARD
+   Consistent responsive breakpoints used throughout the app.
+   Based on Tailwind defaults:
+     sm  640px  — Landscape phones / small tablets
+     md  768px  — Tablets
+     lg  1024px — Desktops
+   Usage: Use sm: as the primary mobile→desktop breakpoint.
+   Mobile-first: base styles target < 640px.
    ======================================== */
 
-.crt-scanlines {
-  position: relative;
-  min-height: calc(100vh - 3rem); /* Fill below navbar */
+/* Hide scrollbar for carousel containers on mobile */
+.quick-picks-carousel {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-
-.crt-scanlines::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50; /* Above content, below modals */
-
-  /* Amber-tinted horizontal scanlines
-     - 4px spacing: visible as scanlines without moire
-     - 6% opacity: noticeable subconsciously, not distracting
-     - Warm amber tint matches CRT phosphor aesthetic */
-  background: repeating-linear-gradient(
-    0deg,
-    oklch(0.69 0.14 56 / 6%) 0px,
-    oklch(0.69 0.14 56 / 6%) 1px,
-    transparent 1px,
-    transparent 4px
-  );
+.quick-picks-carousel::-webkit-scrollbar {
+  display: none;
 }
 
 /* ========================================
@@ -203,13 +192,7 @@
    See: FOUN-04
    ======================================== */
 
-
 @media (prefers-reduced-motion: reduce) {
-  /* Remove scanline overlay */
-  .crt-scanlines::before {
-    display: none;
-  }
-
   /* Disable all animations and transitions globally */
   *,
   *::before,
